@@ -12,6 +12,13 @@ type WidgetVariant = "floating" | "embedded";
 type Props = {
     mode?: WidgetMode; // demo = no API calls, live = ingest events
     variant?: WidgetVariant; // floating = bottom-right widget, embedded = inline block
+
+    // Identity / config
+    widgetKey?: string;
+
+    // API endpoints (override-able for iframe / multi-tenant)
+    ingestUrl?: string; // default: /api/chat/ingest
+    configUrl?: string; // default: /api/chat/get-business-phone
 };
 
 type StepId = "q1_inquiry" | "q2_timing" | "q3_location" | "q4_contact" | "done";
@@ -32,7 +39,13 @@ function formatPhoneForDisplay(e164: string | null) {
     return e164;
 }
 
-export function RestorationWidget({ mode = "demo", variant = "floating" }: Props) {
+export function RestorationWidget({
+    mode = "demo",
+    variant = "floating",
+    widgetKey,
+    ingestUrl = "/api/chat/ingest",
+    configUrl = "/api/chat/get-business-phone",
+}: Props) {
     // Floating widget can be closed; embedded should always be visible.
     const [open, setOpen] = React.useState(true);
 
@@ -63,7 +76,10 @@ export function RestorationWidget({ mode = "demo", variant = "floating" }: Props
 
         (async () => {
             try {
-                const res = await fetch("/api/chat/get-business-phone", { method: "GET" });
+                const url = new URL(configUrl, window.location.origin);
+                if (widgetKey) url.searchParams.set("key", widgetKey);
+
+                const res = await fetch(url.toString(), { method: "GET" });
                 const json = await res.json().catch(() => ({}));
                 if (res.ok && typeof json?.business_phone === "string" && json.business_phone.trim()) {
                     setBusinessPhone(json.business_phone);
@@ -74,7 +90,7 @@ export function RestorationWidget({ mode = "demo", variant = "floating" }: Props
                 setBusinessPhone(null);
             }
         })();
-    }, [mode]);
+    }, [mode, configUrl, widgetKey]);
 
     async function ingest(event_type: string, payload?: { step_id?: string; value?: string; meta?: any }) {
         if (mode === "demo") return;
@@ -85,6 +101,7 @@ export function RestorationWidget({ mode = "demo", variant = "floating" }: Props
             step_id: payload?.step_id,
             value: payload?.value,
             meta: payload?.meta ?? undefined,
+            widget_key: widgetKey ?? undefined,
             session: sessionId
                 ? undefined
                 : {
@@ -93,7 +110,7 @@ export function RestorationWidget({ mode = "demo", variant = "floating" }: Props
                 },
         };
 
-        const res = await fetch("/api/chat/ingest", {
+        const res = await fetch(ingestUrl, {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify(body),
@@ -199,8 +216,7 @@ export function RestorationWidget({ mode = "demo", variant = "floating" }: Props
     const headerText = step === "done" ? "Request received" : "Fast emergency help";
 
     // Layout: floating vs embedded
-    const wrapperClass =
-        variant === "floating" ? "fixed bottom-4 right-4 z-50" : "w-full flex justify-center";
+    const wrapperClass = variant === "floating" ? "fixed bottom-4 right-4 z-50" : "w-full flex justify-center";
 
     const cardClass =
         variant === "floating"
@@ -347,12 +363,17 @@ export function RestorationWidget({ mode = "demo", variant = "floating" }: Props
                                     <>
                                         {" "}
                                         at{" "}
-                                        <span className="font-medium text-foreground">{formatPhoneForDisplay(businessPhone)}</span>.
+                                        <span className="font-medium text-foreground">
+                                            {formatPhoneForDisplay(businessPhone)}
+                                        </span>
+                                        .
                                     </>
                                 ) : (
                                     "."
                                 )}
-                                <div className="mt-2">If you don’t reach someone right away, they’ll follow up as soon as possible.</div>
+                                <div className="mt-2">
+                                    If you don’t reach someone right away, they’ll follow up as soon as possible.
+                                </div>
                             </div>
 
                             {/* Demo preview note ONLY */}
@@ -360,7 +381,8 @@ export function RestorationWidget({ mode = "demo", variant = "floating" }: Props
                                 <div className="rounded-md border p-3 text-xs text-muted-foreground space-y-2">
                                     <div className="font-medium text-foreground">Demo preview</div>
                                     <div className="text-xs text-muted-foreground">
-                                        Demo mode: Call/Text buttons are preview-only. Live mode uses the business number from Settings.
+                                        Demo mode: Call/Text buttons are preview-only. Live mode uses the business number
+                                        from Settings.
                                     </div>
                                 </div>
                             ) : null}
@@ -381,13 +403,11 @@ export function RestorationWidget({ mode = "demo", variant = "floating" }: Props
                                                     value: "call_initiated",
                                                 });
                                             } catch { }
-                                            // let the call proceed
                                         }}
                                     >
                                         Call the business
                                     </a>
                                 </Button>
-
 
                                 {/* TEXT */}
                                 <Button asChild variant="outline">
@@ -415,13 +435,14 @@ export function RestorationWidget({ mode = "demo", variant = "floating" }: Props
 
                             {!businessPhone ? (
                                 <div className="text-xs text-muted-foreground">
-                                    Add your business phone in <span className="font-medium">Settings</span> to enable Call/Text.
+                                    Add your business phone in <span className="font-medium">Settings</span> to enable
+                                    Call/Text.
                                 </div>
                             ) : null}
                         </div>
                     ) : null}
 
-                    {/* Debug (keep for now) */}
+                    {/* Debug */}
                     <div className="pt-2 text-[11px] text-muted-foreground">
                         Mode: <span className="font-mono">{mode}</span>
                         {sessionId ? (

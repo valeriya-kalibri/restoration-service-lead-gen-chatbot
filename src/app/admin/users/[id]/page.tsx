@@ -24,17 +24,6 @@ type RoleRow = {
     created_at: string | null;
 };
 
-type RunRow = {
-    id: string;
-    status: string | null;
-    created_at: string | null;
-    analyzed_at: string | null;
-    updated_at: string | null;
-    summary: string | null;
-    error: string | null;
-    error_stage: string | null;
-};
-
 function fmt(dt: string | null) {
     if (!dt) return "—";
     try {
@@ -59,7 +48,6 @@ export default async function AdminUserDetailPage({
         .select(
             "id,email,full_name,business_name,phone,business_description,onboarding_completed,created_at,updated_at"
         )
-
         .eq("id", id)
         .maybeSingle();
 
@@ -94,22 +82,13 @@ export default async function AdminUserDetailPage({
     const roleList: RoleRow[] = (roles ?? []) as RoleRow[];
     const roleLabel = roleList.length ? roleList.map((r) => r.role).join(", ") : "—";
 
-    // 3) Load runs for this user
-    const { data: runs, error: runsError } = await supabase
-        .from("audit_runs")
-        .select("id,status,created_at,updated_at,analyzed_at,summary,error,error_stage")
-        .eq("user_id", id)
-        .order("created_at", { ascending: false });
-
-    const runRows: RunRow[] = (runs ?? []) as RunRow[];
-
     return (
         <div className="mx-auto w-full max-w-6xl space-y-5">
             <div className="flex items-start justify-between gap-3">
                 <div className="space-y-1">
                     <h1 className="text-xl font-semibold text-primary">User Detail</h1>
                     <p className="text-sm text-muted-foreground">
-                        Profile, roles, and audit runs for this user.
+                        Profile and roles for this user.
                     </p>
                 </div>
 
@@ -193,90 +172,29 @@ export default async function AdminUserDetailPage({
 
                     <div className="sm:col-span-2">
                         <div className="text-xs font-medium text-muted-foreground">Business Description</div>
-                        <div className="text-sm whitespace-pre-wrap">
-                            {p.business_description ?? "—"}
-
-                        </div>
+                        <div className="text-sm whitespace-pre-wrap">{p.business_description ?? "—"}</div>
                     </div>
                 </div>
             </div>
 
-            {/* Runs */}
-            <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                    <h2 className="text-base font-semibold">Audit Runs</h2>
-                    <Button asChild variant="outline" size="sm">
-                        <Link href="/admin/runs">View All Runs</Link>
+            {/* Chatbot Placeholder */}
+            <div className="rounded-lg border bg-background p-4 shadow-sm">
+                <div className="flex items-center justify-between gap-3">
+                    <div className="space-y-1">
+                        <h2 className="text-base font-semibold">Chatbot Activity</h2>
+                        <p className="text-sm text-muted-foreground">
+                            Coming next: chat sessions, lead captures, drop-off points, and conversions.
+                        </p>
+                    </div>
+                    <Button asChild variant="outline" size="sm" disabled>
+                        <span>View Sessions</span>
                     </Button>
                 </div>
 
-                {runsError ? (
-                    <div className="rounded-lg border bg-background p-4 text-sm text-destructive">
-                        Failed to load runs: {runsError.message}
-                    </div>
-                ) : (
-                    <div className="overflow-hidden rounded-lg border bg-background">
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-sm">
-                                <thead className="bg-muted/40 text-muted-foreground">
-                                    <tr className="[&>th]:px-3 [&>th]:py-2 [&>th]:text-left [&>th]:font-medium">
-                                        <th>Run</th>
-                                        <th>Status</th>
-                                        <th>Created</th>
-                                        <th>Analyzed</th>
-                                        <th>Summary</th>
-                                        <th className="w-[1%]"></th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y">
-                                    {runRows.length === 0 ? (
-                                        <tr>
-                                            <td className="px-3 py-4 text-muted-foreground" colSpan={6}>
-                                                No audit runs for this user yet.
-                                            </td>
-                                        </tr>
-                                    ) : (
-                                        runRows.map((r) => (
-                                            <tr key={r.id} className="[&>td]:px-3 [&>td]:py-2 align-top">
-                                                <td className="whitespace-nowrap font-mono text-xs">
-                                                    {r.id.slice(0, 8)}…
-                                                </td>
-                                                <td className="whitespace-nowrap">
-                                                    {r.status ?? <span className="text-muted-foreground">—</span>}
-                                                    {r.error ? (
-                                                        <div className="mt-1 text-xs text-destructive">
-                                                            Error{r.error_stage ? ` (${r.error_stage})` : ""}:{" "}
-                                                            {r.error}
-                                                        </div>
-                                                    ) : null}
-                                                </td>
-                                                <td className="whitespace-nowrap text-muted-foreground">
-                                                    {fmt(r.created_at)}
-                                                </td>
-                                                <td className="whitespace-nowrap text-muted-foreground">
-                                                    {fmt(r.analyzed_at)}
-                                                </td>
-                                                <td className="max-w-[420px] truncate text-muted-foreground">
-                                                    {r.summary ?? "—"}
-                                                </td>
-                                                <td className="text-right">
-                                                    <Button asChild size="sm" variant="outline">
-                                                        <Link href={`/admin/runs/${r.id}`}>Open</Link>
-                                                    </Button>
-                                                </td>
-                                            </tr>
-                                        ))
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                )}
+                <div className="mt-3 text-sm text-muted-foreground">
+                    No chatbot analytics available yet for this user.
+                </div>
             </div>
-
-            <p className="text-xs text-muted-foreground">
-                Next: we’ll build <code>/admin/runs</code> and <code>/admin/runs/[id]</code> to inspect intake + results.
-            </p>
         </div>
     );
 }

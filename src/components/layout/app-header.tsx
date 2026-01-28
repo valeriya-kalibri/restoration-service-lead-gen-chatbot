@@ -10,7 +10,7 @@ type AppHeaderProps = {
     title?: string;
 };
 
-export function AppHeader({ title = "Business Operations Audit Agent" }: AppHeaderProps) {
+export function AppHeader({ title = "KALIBRI RESTORATION LEAD GEN" }: AppHeaderProps) {
     const [open, setOpen] = React.useState(false);
     const [isAuthed, setIsAuthed] = React.useState<boolean>(false);
 

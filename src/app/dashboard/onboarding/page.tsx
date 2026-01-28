@@ -24,7 +24,7 @@ export default async function OnboardingPage() {
             <div>
                 <h1 className="text-xl font-semibold text-primary">Onboarding</h1>
                 <p className="mt-1 text-sm text-muted-foreground">
-                    Tell us a little about you and your business. This helps generate better audits.
+                    Tell us a little about your business. 
                 </p>
             </div>
 

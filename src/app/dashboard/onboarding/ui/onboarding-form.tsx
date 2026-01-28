@@ -59,30 +59,28 @@ export function OnboardingForm({
 
             <div className="space-y-2">
                 <div className="text-sm font-medium text-primary">Full name</div>
-                <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="e.g., Valeriya Paine" />
+                <Input value={fullName} onChange={(e) => setFullName(e.target.value)}  />
             </div>
 
             <div className="space-y-2">
                 <div className="text-sm font-medium text-primary">Business name</div>
-                <Input value={businessName} onChange={(e) => setBusinessName(e.target.value)} placeholder="e.g., Kalibri Studios" />
+                <Input value={businessName} onChange={(e) => setBusinessName(e.target.value)}  />
             </div>
 
             <div className="space-y-2">
                 <div className="text-sm font-medium text-primary">Phone number</div>
-                <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="e.g., +1 (407) 555-0123" />
+                <Input value={phone} onChange={(e) => setPhone(e.target.value)}  />
             </div>
 
             <div className="space-y-2">
-                <div className="text-sm font-medium text-primary">Tell us about your business</div>
+                <div className="text-sm font-medium text-primary">Current Lead Generation Process</div>
                 <textarea
                     className="w-full min-h-[120px] rounded-md border bg-transparent px-3 py-2 text-sm"
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
-                    placeholder="What do you sell, who do you serve, how do clients find you, and what tools do you use today?"
+                    placeholder="How do new leads reach you today? (calls, Google Ads, Google Maps, forms, Angi, referrals, etc. ?"
                 />
-                <div className="text-xs text-muted-foreground">
-                    Include your services, typical client journey, and any tools/spreadsheets/CRMs you use.
-                </div>
+                
             </div>
 
             {error ? <div className="text-sm text-destructive">{error}</div> : null}

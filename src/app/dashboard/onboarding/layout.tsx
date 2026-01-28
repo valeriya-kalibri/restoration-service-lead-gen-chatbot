@@ -20,7 +20,7 @@ export default async function OnboardingLayout({
 
     return (
         <div className="min-h-screen bg-muted/30">
-            <AppHeader title="KALIBRI BUSINESS OPERATIONS AUDIT" />
+            <AppHeader title="RESTORATION SERVICE LEAD GENERATION CHATBOT" />
 
             <DashboardShell sidebar={<DashboardNav />}>
                 {children}

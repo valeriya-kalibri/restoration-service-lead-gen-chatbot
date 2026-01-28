@@ -155,7 +155,7 @@ export default async function AdminUsersPage() {
             </div>
 
             <p className="text-xs text-muted-foreground">
-                Next: we’ll create <code>/admin/users/[id]</code> so you can open a user and see their audit runs + results.
+                Next: we’ll create admin users so you can open a user and see their audit runs + results.
             </p>
         </div>
     );

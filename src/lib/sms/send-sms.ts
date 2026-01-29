@@ -1,36 +1,45 @@
-// THIS FILE IS  the outbound SMS helper.
-
 import Twilio from "twilio";
 
-const accountSid = process.env.TWILIO_ACCOUNT_SID;
-const authToken = process.env.TWILIO_AUTH_TOKEN;
-const fromNumber = process.env.TWILIO_FROM_NUMBER;
+type TwilioEnv = {
+    accountSid: string;
+    authToken: string;
+    fromNumber: string;
+};
 
-if (!accountSid || !authToken || !fromNumber) {
-    throw new Error("Missing Twilio environment variables");
+function getTwilioEnv(): TwilioEnv {
+    const accountSid = process.env.TWILIO_ACCOUNT_SID;
+    const authToken = process.env.TWILIO_AUTH_TOKEN;
+    const fromNumber = process.env.TWILIO_FROM_NUMBER;
+
+    if (!accountSid || !authToken || !fromNumber) {
+        throw new Error("Missing Twilio environment variables");
+    }
+
+    return { accountSid, authToken, fromNumber };
 }
 
-const client = Twilio(accountSid, authToken);
+// Lazy init so builds and non-SMS paths never crash
+let _client: ReturnType<typeof Twilio> | null = null;
 
-export async function sendSms({
-    to,
-    body,
-}: {
-    to: string;
-    body: string;
-}): Promise<{ ok: true; sid: string } | { ok: false; error: string }> {
-    try {
-        const msg = await client.messages.create({
-            to,
-            from: fromNumber,
-            body,
-        });
+function getTwilioClient() {
+    if (_client) return _client;
+    const { accountSid, authToken } = getTwilioEnv();
+    _client = Twilio(accountSid, authToken);
+    return _client;
+}
 
-        return { ok: true, sid: msg.sid };
-    } catch (err: any) {
-        return {
-            ok: false,
-            error: err?.message ?? "Twilio send failed",
-        };
-    }
+/**
+ * Sends an SMS using Twilio.
+ * - Safe for build time (no env checks at module import).
+ * - Throws at runtime if Twilio env vars are missing.
+ */
+export async function sendSms(to: string, body: string) {
+    const { fromNumber } = getTwilioEnv();
+    const client = getTwilioClient();
+
+    return await client.messages.create({
+        to,
+        from: fromNumber,
+        body,
+    });
 }

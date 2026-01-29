@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { sendSms } from "@/lib/sms/send-sms";
 
-type EventType =
+type BaseEventType =
     | "select_inquiry"
     | "timing_selected"
     | "location_submitted"
@@ -11,9 +11,22 @@ type EventType =
     | "call_clicked"
     | "text_clicked";
 
+type SmsEventType =
+    | "sms_sent_business"
+    | "sms_failed_business"
+    | "sms_skipped_business"
+    | "sms_sent_lead"
+    | "sms_failed_lead"
+    | "sms_skipped_lead"
+    | "sms_sent_business_details"
+    | "sms_failed_business_details"
+    | "sms_skipped_business_details";
+
+type EventType = BaseEventType | SmsEventType;
+
 type IngestEventBody = {
     session_id?: string;
-    event_type: EventType;
+    event_type: BaseEventType;
     step_id?: string;
     value?: string;
     meta?: Record<string, unknown>;
@@ -45,6 +58,32 @@ function safeText(x: unknown): string | null {
     if (typeof x !== "string") return null;
     const t = x.trim();
     return t.length ? t : null;
+}
+
+function isMissingTwilioEnvError(err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return msg.toLowerCase().includes("missing twilio environment variables");
+}
+
+async function logEvent(
+    supabase: any,
+    payload: {
+        client_id: string;
+        session_id: string;
+        event_type: EventType;
+        step_id?: string | null;
+        value?: string | null;
+        meta?: Record<string, unknown>;
+    }
+) {
+    await supabase.from("chat_events").insert({
+        client_id: payload.client_id,
+        session_id: payload.session_id,
+        event_type: payload.event_type,
+        step_id: payload.step_id ?? null,
+        value: payload.value ?? null,
+        meta: payload.meta ?? {},
+    });
 }
 
 export async function POST(req: Request) {
@@ -96,10 +135,16 @@ export async function POST(req: Request) {
         sessionId = created.id;
     }
 
-    // 2) Insert event (always)
+    // ✅ TS hard guarantee for helpers that require string
+    if (!sessionId) {
+        return NextResponse.json({ error: "Failed to create session" }, { status: 500 });
+    }
+    const sid = sessionId;
+
+    // 2) Insert base event (always)
     const { error: eventErr } = await supabase.from("chat_events").insert({
         client_id: clientId,
-        session_id: sessionId,
+        session_id: sid,
         event_type: body.event_type,
         step_id: body.step_id ?? null,
         value: body.value ?? null,
@@ -115,7 +160,7 @@ export async function POST(req: Request) {
         await supabase
             .from("chat_sessions")
             .update({ last_step_id: body.step_id })
-            .eq("id", sessionId)
+            .eq("id", sid)
             .eq("client_id", clientId);
     }
 
@@ -125,7 +170,7 @@ export async function POST(req: Request) {
         await supabase
             .from("chat_sessions")
             .update({ inquiry_type: inquiry })
-            .eq("id", sessionId)
+            .eq("id", sid)
             .eq("client_id", clientId);
     }
 
@@ -138,7 +183,7 @@ export async function POST(req: Request) {
                 timing: t,
                 is_ongoing: t === "ongoing" ? true : t === "stopped" ? false : null,
             })
-            .eq("id", sessionId)
+            .eq("id", sid)
             .eq("client_id", clientId);
     }
 
@@ -150,11 +195,11 @@ export async function POST(req: Request) {
         await supabase
             .from("chat_sessions")
             .update({ city, zip })
-            .eq("id", sessionId)
+            .eq("id", sid)
             .eq("client_id", clientId);
     }
 
-    // ✅ Step 3B: Call clicked → call_initiated
+    // Call clicked → call_initiated
     if (body.event_type === "call_clicked") {
         await supabase
             .from("chat_sessions")
@@ -162,11 +207,11 @@ export async function POST(req: Request) {
                 outcome: "call_initiated",
                 ended_at: new Date().toISOString(),
             })
-            .eq("id", sessionId)
+            .eq("id", sid)
             .eq("client_id", clientId);
     }
 
-    // Optional: Text clicked (tracks intent)
+    // Text clicked (tracks intent)
     if (body.event_type === "text_clicked") {
         await supabase
             .from("chat_sessions")
@@ -174,11 +219,11 @@ export async function POST(req: Request) {
                 outcome: "lead_captured",
                 ended_at: new Date().toISOString(),
             })
-            .eq("id", sessionId)
+            .eq("id", sid)
             .eq("client_id", clientId);
     }
 
-    // 4) contact_submitted: save lead fields + set callback_requested + ended_at + send SMS
+    // 4) contact_submitted: save lead fields + set callback_requested + ended_at + send SMS (non-fatal)
     if (body.event_type === "contact_submitted") {
         const meta = body.meta ?? {};
 
@@ -205,18 +250,18 @@ export async function POST(req: Request) {
                 lead_phone,
                 lead_email,
                 preferred_contact,
-                business_phone: businessPhone, // store what we used (or null)
+                business_phone: businessPhone,
                 outcome: "callback_requested",
                 ended_at: new Date().toISOString(),
             })
-            .eq("id", sessionId)
+            .eq("id", sid)
             .eq("client_id", clientId);
 
         // Read context for SMS body
         const { data: existing } = await supabase
             .from("chat_sessions")
             .select("inquiry_type, timing, is_ongoing, city, zip, damage_description")
-            .eq("id", sessionId)
+            .eq("id", sid)
             .eq("client_id", clientId)
             .single();
 
@@ -247,70 +292,68 @@ export async function POST(req: Request) {
             ? `We got your request. For fastest help, call/text ${businessPhone}.\n\nSincerely,\n${businessName}`
             : `We got your request. The restoration team will reach out ASAP.\n\nSincerely,\n${businessName}`;
 
-        // Business SMS (don’t fail ingest if Twilio fails)
-        if (businessPhone) {
+        // Business SMS (optional, non-fatal)
+        if (!businessPhone) {
+            await logEvent(supabase, {
+                client_id: clientId,
+                session_id: sid,
+                event_type: "sms_skipped_business",
+                meta: { reason: "Missing business_phone in chatbot_settings" },
+            });
+        } else {
             try {
-                const r = await sendSms({ to: businessPhone, body: businessBody });
-                await supabase.from("chat_events").insert({
+                const msg = await sendSms(businessPhone, businessBody);
+                await logEvent(supabase, {
                     client_id: clientId,
-                    session_id: sessionId,
-                    event_type: r.ok ? "sms_sent_business" : "sms_failed_business",
-                    step_id: null,
-                    value: null,
-                    meta: r.ok ? { to: businessPhone, sid: r.sid } : { to: businessPhone, error: r.error },
+                    session_id: sid,
+                    event_type: "sms_sent_business",
+                    meta: { to: businessPhone, sid: (msg as any)?.sid ?? null },
                 });
             } catch (e: any) {
-                await supabase.from("chat_events").insert({
+                const skipped = isMissingTwilioEnvError(e);
+                await logEvent(supabase, {
                     client_id: clientId,
-                    session_id: sessionId,
-                    event_type: "sms_failed_business",
-                    step_id: null,
-                    value: null,
-                    meta: { to: businessPhone, error: e?.message ?? "sendSms threw" },
+                    session_id: sid,
+                    event_type: skipped ? "sms_skipped_business" : "sms_failed_business",
+                    meta: {
+                        to: businessPhone,
+                        error: e?.message ?? "sendSms threw",
+                        reason: skipped ? "Twilio not configured" : undefined,
+                    },
                 });
             }
-        } else {
-            await supabase.from("chat_events").insert({
-                client_id: clientId,
-                session_id: sessionId,
-                event_type: "sms_failed_business",
-                step_id: null,
-                value: null,
-                meta: { error: "Missing business_phone in chatbot_settings" },
-            });
         }
 
-        // Lead SMS (one-way)
-        if (lead_phone) {
+        // Lead SMS (one-way, optional, non-fatal)
+        if (!lead_phone) {
+            await logEvent(supabase, {
+                client_id: clientId,
+                session_id: sid,
+                event_type: "sms_skipped_lead",
+                meta: { reason: "Missing lead_phone in contact_submitted meta" },
+            });
+        } else {
             try {
-                const r2 = await sendSms({ to: lead_phone, body: leadBody });
-                await supabase.from("chat_events").insert({
+                const msg2 = await sendSms(lead_phone, leadBody);
+                await logEvent(supabase, {
                     client_id: clientId,
-                    session_id: sessionId,
-                    event_type: r2.ok ? "sms_sent_lead" : "sms_failed_lead",
-                    step_id: null,
-                    value: null,
-                    meta: r2.ok ? { to: lead_phone, sid: r2.sid } : { to: lead_phone, error: r2.error },
+                    session_id: sid,
+                    event_type: "sms_sent_lead",
+                    meta: { to: lead_phone, sid: (msg2 as any)?.sid ?? null },
                 });
             } catch (e: any) {
-                await supabase.from("chat_events").insert({
+                const skipped = isMissingTwilioEnvError(e);
+                await logEvent(supabase, {
                     client_id: clientId,
-                    session_id: sessionId,
-                    event_type: "sms_failed_lead",
-                    step_id: null,
-                    value: null,
-                    meta: { to: lead_phone, error: e?.message ?? "sendSms threw" },
+                    session_id: sid,
+                    event_type: skipped ? "sms_skipped_lead" : "sms_failed_lead",
+                    meta: {
+                        to: lead_phone,
+                        error: e?.message ?? "sendSms threw",
+                        reason: skipped ? "Twilio not configured" : undefined,
+                    },
                 });
             }
-        } else {
-            await supabase.from("chat_events").insert({
-                client_id: clientId,
-                session_id: sessionId,
-                event_type: "sms_failed_lead",
-                step_id: null,
-                value: null,
-                meta: { error: "Missing lead_phone in contact_submitted meta" },
-            });
         }
     }
 
@@ -322,7 +365,7 @@ export async function POST(req: Request) {
             await supabase
                 .from("chat_sessions")
                 .update({ damage_description: desc })
-                .eq("id", sessionId)
+                .eq("id", sid)
                 .eq("client_id", clientId);
 
             const { data: settings } = await supabase
@@ -333,31 +376,42 @@ export async function POST(req: Request) {
 
             const businessPhone = normalizePhone(settings?.business_phone);
 
-            if (businessPhone) {
-                const detailsBody = `Lead update\nDetails: ${desc}\nSession: ${sessionId}`;
+            if (!businessPhone) {
+                await logEvent(supabase, {
+                    client_id: clientId,
+                    session_id: sid,
+                    event_type: "sms_skipped_business_details",
+                    step_id: "q5_description",
+                    meta: { reason: "Missing business_phone in chatbot_settings" },
+                });
+            } else {
+                const detailsBody = `Lead update\nDetails: ${desc}\nSession: ${sid}`;
                 try {
-                    const r = await sendSms({ to: businessPhone, body: detailsBody });
-                    await supabase.from("chat_events").insert({
+                    const msg = await sendSms(businessPhone, detailsBody);
+                    await logEvent(supabase, {
                         client_id: clientId,
-                        session_id: sessionId,
-                        event_type: r.ok ? "sms_sent_business_details" : "sms_failed_business_details",
+                        session_id: sid,
+                        event_type: "sms_sent_business_details",
                         step_id: "q5_description",
-                        value: null,
-                        meta: r.ok ? { to: businessPhone, sid: r.sid } : { to: businessPhone, error: r.error },
+                        meta: { to: businessPhone, sid: (msg as any)?.sid ?? null },
                     });
                 } catch (e: any) {
-                    await supabase.from("chat_events").insert({
+                    const skipped = isMissingTwilioEnvError(e);
+                    await logEvent(supabase, {
                         client_id: clientId,
-                        session_id: sessionId,
-                        event_type: "sms_failed_business_details",
+                        session_id: sid,
+                        event_type: skipped ? "sms_skipped_business_details" : "sms_failed_business_details",
                         step_id: "q5_description",
-                        value: null,
-                        meta: { to: businessPhone, error: e?.message ?? "sendSms threw" },
+                        meta: {
+                            to: businessPhone,
+                            error: e?.message ?? "sendSms threw",
+                            reason: skipped ? "Twilio not configured" : undefined,
+                        },
                     });
                 }
             }
         }
     }
 
-    return NextResponse.json({ ok: true, session_id: sessionId });
+    return NextResponse.json({ ok: true, session_id: sid });
 }

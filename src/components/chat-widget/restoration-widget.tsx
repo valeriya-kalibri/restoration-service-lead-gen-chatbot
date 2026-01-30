@@ -21,7 +21,7 @@ type Props = {
     configUrl?: string; // default: /api/chat/get-business-phone
 };
 
-type StepId = "q1_inquiry" | "q2_timing" | "q3_location" | "q4_contact" | "done";
+type StepId = "q1_inquiry" | "q2_timing" | "q3_location" | "q4_contact" | "q5_description" | "done";
 
 function cx(...a: Array<string | false | undefined | null>) {
     return a.filter(Boolean).join(" ");
@@ -59,6 +59,9 @@ export function RestorationWidget({
     const [name, setName] = React.useState("");
     const [phone, setPhone] = React.useState("");
     const [email, setEmail] = React.useState("");
+
+    // ✅ NEW: optional description after contact
+    const [description, setDescription] = React.useState("");
 
     const [businessPhone, setBusinessPhone] = React.useState<string | null>(null);
 
@@ -131,6 +134,7 @@ export function RestorationWidget({
         setName("");
         setPhone("");
         setEmail("");
+        setDescription(""); // ✅ NEW
         setError(null);
     }
 
@@ -205,12 +209,41 @@ export function RestorationWidget({
                     preferred_contact: "either",
                 },
             });
+
+            // ✅ AFTER Q4, go to Q5 description (not done)
+            setStep("q5_description");
+        } catch (e: any) {
+            setError(e?.message ?? "Failed");
+        } finally {
+            setBusy(false);
+        }
+    }
+
+    // ✅ NEW: submit/skip description
+    async function onSubmitDescription() {
+        setError(null);
+        const d = description.trim();
+
+        // optional: if empty, treat as skip
+        if (!d) {
+            setStep("done");
+            return;
+        }
+
+        try {
+            setBusy(true);
+            await ingest("damage_described", { step_id: "q5_description", value: d });
             setStep("done");
         } catch (e: any) {
             setError(e?.message ?? "Failed");
         } finally {
             setBusy(false);
         }
+    }
+
+    function onSkipDescription() {
+        setError(null);
+        setStep("done");
     }
 
     const headerText = step === "done" ? "Request received" : "Fast emergency help";
@@ -346,6 +379,33 @@ export function RestorationWidget({
                             <Button disabled={busy} onClick={onSubmitContact}>
                                 Submit
                             </Button>
+                        </div>
+                    ) : null}
+
+                    {/* Q5 (after contact) */}
+                    {step === "q5_description" ? (
+                        <div className="space-y-2">
+                            <div className="text-sm font-medium">Briefly describe what happened</div>
+                            <div className="text-xs text-muted-foreground">
+                                Optional — quick details help the team prep before they call you.
+                            </div>
+
+                            <textarea
+                                className="min-h-[84px] w-full rounded-md border bg-transparent px-3 py-2 text-sm"
+                                placeholder="Example: pipe burst under sink, water spreading into hallway…"
+                                value={description}
+                                onChange={(e) => setDescription(e.target.value)}
+                                disabled={busy}
+                            />
+
+                            <div className="flex flex-wrap gap-2">
+                                <Button disabled={busy} onClick={onSubmitDescription}>
+                                    Continue
+                                </Button>
+                                <Button disabled={busy} variant="outline" onClick={onSkipDescription}>
+                                    Skip
+                                </Button>
+                            </div>
                         </div>
                     ) : null}
 

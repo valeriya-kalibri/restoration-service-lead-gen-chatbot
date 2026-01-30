@@ -125,7 +125,7 @@ export default async function WidgetInstallPage() {
                 title="Embed code"
                 description="Copy/paste this into your website (before </body>)."
                 code={embedCode}
-                note="This embed includes your unique widget key automatically. Your client does not need to configure anything else."
+                
             />
         </div>
     );

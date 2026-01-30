@@ -38,17 +38,7 @@ export function EmbedCodeBlock({ title, description, code, note }: Props) {
 
             <div className="flex flex-wrap items-center gap-2">
                 <Button onClick={onCopy}>{copied ? "Copied" : "Copy code"}</Button>
-                <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                        // highlight/select code area
-                        const sel = window.getSelection?.();
-                        sel?.removeAllRanges?.();
-                    }}
-                >
-                    (Optional) Manual copy
-                </Button>
+                
             </div>
 
             {note ? <div className="text-xs text-muted-foreground">{note}</div> : null}

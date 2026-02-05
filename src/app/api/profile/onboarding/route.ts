@@ -11,7 +11,7 @@ export async function POST(req: Request) {
 
     const full_name = String(body?.full_name ?? "").trim();
     const business_name = String(body?.business_name ?? "").trim();
-    const phone = String(body?.phone ?? "").trim();
+    const phone = String(body?.business_phone ?? "").trim();
     const business_description = String(body?.business_description ?? "").trim();
 
     if (!full_name || !business_name) {
@@ -19,15 +19,15 @@ export async function POST(req: Request) {
     }
 
     const { error } = await supabase
-        .from("profiles")
-        .update({
-            full_name,
-            business_name,
-            phone,
-            business_description,
-            onboarding_completed: true,
-        })
-        .eq("id", auth.user.id);
+  .from("profiles")
+  .update({
+    full_name: body.full_name,
+    business_name: body.business_name,
+    business_phone: body.phone, 
+    business_description: body.business_description,
+    onboarding_completed: true,
+  })
+  .eq("id", auth.user.id);
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 

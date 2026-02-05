@@ -9,15 +9,18 @@ import { createClient } from "@/lib/supabase/browser";
 
 type LoginFormProps = {
     onSwitchToRegister?: () => void;
+    onForgotPassword?: () => void;
     onSuccess?: () => void;
 };
 
-export default function LoginForm({ onSwitchToRegister, onSuccess }: LoginFormProps) {
+export default function LoginForm({ onSwitchToRegister, onForgotPassword, onSuccess }: LoginFormProps) {
     const supabase = React.useMemo(() => createClient(), []);
     const router = useRouter();
 
     const [loading, setLoading] = React.useState(false);
     const [error, setError] = React.useState<string | null>(null);
+
+    const [emailValue, setEmailValue] = React.useState("");
 
     async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault();
@@ -39,7 +42,6 @@ export default function LoginForm({ onSwitchToRegister, onSuccess }: LoginFormPr
             return;
         }
 
-        // success
         setLoading(false);
         onSuccess?.();
         router.push("/dashboard");
@@ -69,6 +71,8 @@ export default function LoginForm({ onSwitchToRegister, onSuccess }: LoginFormPr
                     placeholder="you@company.com"
                     autoComplete="email"
                     required
+                    value={emailValue}
+                    onChange={(e) => setEmailValue(e.target.value)}
                 />
             </div>
 
@@ -96,7 +100,7 @@ export default function LoginForm({ onSwitchToRegister, onSuccess }: LoginFormPr
                 <button
                     type="button"
                     className="text-muted-foreground underline-offset-4 hover:underline"
-                    onClick={() => setError("Forgot password isn’t wired yet.")}
+                    onClick={onForgotPassword}
                 >
                     Forgot password?
                 </button>

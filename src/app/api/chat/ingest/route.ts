@@ -25,6 +25,10 @@ type SmsEventType =
 type EventType = BaseEventType | SmsEventType;
 
 type IngestEventBody = {
+    // Production identity
+    widget_key?: string;
+
+    // Session
     session_id?: string;
     event_type: BaseEventType;
     step_id?: string;
@@ -55,9 +59,7 @@ function str(x: unknown): string | null {
 }
 
 function safeText(x: unknown): string | null {
-    if (typeof x !== "string") return null;
-    const t = x.trim();
-    return t.length ? t : null;
+    return typeof x === "string" && x.trim() ? x.trim() : null;
 }
 
 function isMissingTwilioEnvError(err: unknown) {
@@ -86,15 +88,31 @@ async function logEvent(
     });
 }
 
+async function resolveClientFromWidgetKey(supabase: any, widgetKey: string) {
+    const { data: profile, error } = await supabase
+        .from("profiles")
+        .select("id, widget_enabled, business_phone, business_name")
+        .eq("widget_key", widgetKey)
+        .maybeSingle();
+
+    if (error) {
+        return { ok: false as const, status: 500, error: error.message };
+    }
+    if (!profile) {
+        return { ok: false as const, status: 404, error: "Invalid widget_key" };
+    }
+
+    return {
+        ok: true as const,
+        clientId: profile.id as string,
+        widgetEnabled: (profile.widget_enabled as boolean | null) !== false,
+        businessPhone: normalizePhone(profile.business_phone),
+        businessName: safeText(profile.business_name) ?? "Restoration team",
+    };
+}
+
 export async function POST(req: Request) {
     const supabase = await createClient();
-
-    // For now: must be logged in (dashboard test mode)
-    const { data: userData, error: userErr } = await supabase.auth.getUser();
-    if (userErr || !userData?.user) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    const clientId = userData.user.id;
 
     let body: IngestEventBody;
     try {
@@ -105,6 +123,43 @@ export async function POST(req: Request) {
 
     if (!body.event_type) {
         return NextResponse.json({ error: "event_type is required" }, { status: 400 });
+    }
+
+    // Resolve client identity:
+    // - If logged in (dashboard test), use auth user id
+    // - Else production requires widget_key
+    const { data: userData } = await supabase.auth.getUser();
+    const authedUserId = userData?.user?.id ?? null;
+
+    let clientId: string | null = authedUserId;
+
+    // For production (no auth), we must resolve by widget_key
+    const widgetKey = safeText(body.widget_key) ?? null;
+    let cachedConfig:
+        | { widgetEnabled: boolean; businessPhone: string | null; businessName: string }
+        | null = null;
+
+    if (!clientId) {
+        if (!widgetKey) {
+            return NextResponse.json({ error: "widget_key is required (production mode)" }, { status: 401 });
+        }
+
+        const resolved = await resolveClientFromWidgetKey(supabase, widgetKey);
+        if (!resolved.ok) {
+            return NextResponse.json({ error: resolved.error }, { status: resolved.status });
+        }
+
+        clientId = resolved.clientId;
+        cachedConfig = {
+            widgetEnabled: resolved.widgetEnabled,
+            businessPhone: resolved.businessPhone,
+            businessName: resolved.businessName,
+        };
+    }
+
+    // Extra guard
+    if (!clientId) {
+        return NextResponse.json({ error: "Unable to resolve client" }, { status: 500 });
     }
 
     // 1) Ensure session exists (create if missing)
@@ -135,7 +190,6 @@ export async function POST(req: Request) {
         sessionId = created.id;
     }
 
-    // ✅ TS hard guarantee for helpers that require string
     if (!sessionId) {
         return NextResponse.json({ error: "Failed to create session" }, { status: 500 });
     }
@@ -164,19 +218,14 @@ export async function POST(req: Request) {
             .eq("client_id", clientId);
     }
 
-    // 3b) Keep chat_sessions summary fields in sync (so Leads/Analytics don't depend on events)
+    // 3b) Keep chat_sessions summary fields in sync
     if (body.event_type === "select_inquiry") {
         const inquiry = body.value ?? null;
-        await supabase
-            .from("chat_sessions")
-            .update({ inquiry_type: inquiry })
-            .eq("id", sid)
-            .eq("client_id", clientId);
+        await supabase.from("chat_sessions").update({ inquiry_type: inquiry }).eq("id", sid).eq("client_id", clientId);
     }
 
     if (body.event_type === "timing_selected") {
         const t = body.value === "ongoing" || body.value === "stopped" ? body.value : null;
-
         await supabase
             .from("chat_sessions")
             .update({
@@ -192,21 +241,14 @@ export async function POST(req: Request) {
         const city = str(meta["city"]);
         const zip = str(meta["zip"]);
 
-        await supabase
-            .from("chat_sessions")
-            .update({ city, zip })
-            .eq("id", sid)
-            .eq("client_id", clientId);
+        await supabase.from("chat_sessions").update({ city, zip }).eq("id", sid).eq("client_id", clientId);
     }
 
     // Call clicked → call_initiated
     if (body.event_type === "call_clicked") {
         await supabase
             .from("chat_sessions")
-            .update({
-                outcome: "call_initiated",
-                ended_at: new Date().toISOString(),
-            })
+            .update({ outcome: "call_initiated", ended_at: new Date().toISOString() })
             .eq("id", sid)
             .eq("client_id", clientId);
     }
@@ -215,10 +257,7 @@ export async function POST(req: Request) {
     if (body.event_type === "text_clicked") {
         await supabase
             .from("chat_sessions")
-            .update({
-                outcome: "lead_captured",
-                ended_at: new Date().toISOString(),
-            })
+            .update({ outcome: "lead_captured", ended_at: new Date().toISOString() })
             .eq("id", sid)
             .eq("client_id", clientId);
     }
@@ -232,17 +271,25 @@ export async function POST(req: Request) {
         const preferred_contact = str(meta["preferred_contact"]);
         const lead_phone = normalizePhone(meta["lead_phone"] ?? meta["phone"]);
 
-        // Get settings (business phone/name)
-        const { data: settings } = await supabase
-            .from("chatbot_settings")
-            .select("business_phone, business_name")
-            .eq("client_id", clientId)
-            .maybeSingle();
+        // Get client config from profiles (source of truth)
+        // If we already resolved via widget_key, reuse cached config.
+        let widgetEnabled = cachedConfig?.widgetEnabled ?? true;
+        let businessPhone = cachedConfig?.businessPhone ?? null;
+        let businessName = cachedConfig?.businessName ?? "Restoration team";
 
-        const businessPhone = normalizePhone(settings?.business_phone);
-        const businessName = safeText(settings?.business_name) ?? "Restoration team";
+        if (!cachedConfig) {
+            const { data: settings } = await supabase
+                .from("profiles")
+                .select("business_phone, business_name, widget_enabled")
+                .eq("id", clientId)
+                .maybeSingle();
 
-        // Update session summary fields
+            widgetEnabled = settings?.widget_enabled !== false;
+            businessPhone = normalizePhone(settings?.business_phone);
+            businessName = safeText(settings?.business_name) ?? "Restoration team";
+        }
+
+        // Update session summary fields (always)
         await supabase
             .from("chat_sessions")
             .update({
@@ -292,13 +339,32 @@ export async function POST(req: Request) {
             ? `We got your request. For fastest help, call/text ${businessPhone}.\n\nSincerely,\n${businessName}`
             : `We got your request. The restoration team will reach out ASAP.\n\nSincerely,\n${businessName}`;
 
+        // Widget disabled: skip SMS but keep session captured
+        if (!widgetEnabled) {
+            await logEvent(supabase, {
+                client_id: clientId,
+                session_id: sid,
+                event_type: "sms_skipped_business",
+                meta: { reason: "Widget disabled in profiles" },
+            });
+
+            await logEvent(supabase, {
+                client_id: clientId,
+                session_id: sid,
+                event_type: "sms_skipped_lead",
+                meta: { reason: "Widget disabled in profiles" },
+            });
+
+            return NextResponse.json({ ok: true, session_id: sid });
+        }
+
         // Business SMS (optional, non-fatal)
         if (!businessPhone) {
             await logEvent(supabase, {
                 client_id: clientId,
                 session_id: sid,
                 event_type: "sms_skipped_business",
-                meta: { reason: "Missing business_phone in chatbot_settings" },
+                meta: { reason: "Missing business_phone in profiles" },
             });
         } else {
             try {
@@ -362,19 +428,34 @@ export async function POST(req: Request) {
         const desc = safeText(body.value);
 
         if (desc) {
-            await supabase
-                .from("chat_sessions")
-                .update({ damage_description: desc })
-                .eq("id", sid)
-                .eq("client_id", clientId);
+            await supabase.from("chat_sessions").update({ damage_description: desc }).eq("id", sid).eq("client_id", clientId);
 
-            const { data: settings } = await supabase
-                .from("chatbot_settings")
-                .select("business_phone")
-                .eq("client_id", clientId)
-                .maybeSingle();
+            // Get client config from profiles (source of truth)
+            let widgetEnabled = cachedConfig?.widgetEnabled ?? true;
+            let businessPhone = cachedConfig?.businessPhone ?? null;
 
-            const businessPhone = normalizePhone(settings?.business_phone);
+            if (!cachedConfig) {
+                const { data: settings } = await supabase
+                    .from("profiles")
+                    .select("business_phone, widget_enabled")
+                    .eq("id", clientId)
+                    .maybeSingle();
+
+                widgetEnabled = settings?.widget_enabled !== false;
+                businessPhone = normalizePhone(settings?.business_phone);
+            }
+
+            if (!widgetEnabled) {
+                await logEvent(supabase, {
+                    client_id: clientId,
+                    session_id: sid,
+                    event_type: "sms_skipped_business_details",
+                    step_id: "q5_description",
+                    meta: { reason: "Widget disabled in profiles" },
+                });
+
+                return NextResponse.json({ ok: true, session_id: sid });
+            }
 
             if (!businessPhone) {
                 await logEvent(supabase, {
@@ -382,7 +463,7 @@ export async function POST(req: Request) {
                     session_id: sid,
                     event_type: "sms_skipped_business_details",
                     step_id: "q5_description",
-                    meta: { reason: "Missing business_phone in chatbot_settings" },
+                    meta: { reason: "Missing business_phone in profiles" },
                 });
             } else {
                 const detailsBody = `Lead update\nDetails: ${desc}\nSession: ${sid}`;
@@ -400,7 +481,9 @@ export async function POST(req: Request) {
                     await logEvent(supabase, {
                         client_id: clientId,
                         session_id: sid,
-                        event_type: skipped ? "sms_skipped_business_details" : "sms_failed_business_details",
+                        event_type: skipped
+                            ? "sms_skipped_business_details"
+                            : "sms_failed_business_details",
                         step_id: "q5_description",
                         meta: {
                             to: businessPhone,
@@ -413,5 +496,6 @@ export async function POST(req: Request) {
         }
     }
 
+    // Default response for all other events
     return NextResponse.json({ ok: true, session_id: sid });
 }

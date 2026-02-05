@@ -53,11 +53,15 @@ export function DashboardNav({ isAdmin = false }: DashboardNavProps) {
             {isAdmin ? (
                 <>
                     <div className="h-2" />
+
                     <Button asChild variant={isActive(pathname, "/admin") ? "default" : "outline"}>
                         <Link href="/admin">Admin</Link>
                     </Button>
+
+                    
                 </>
             ) : null}
+
         </div>
     );
 }

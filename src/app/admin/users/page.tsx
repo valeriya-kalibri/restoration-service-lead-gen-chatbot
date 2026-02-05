@@ -11,6 +11,8 @@ type UserRow = {
     onboarding_completed: boolean;
     created_at: string | null;
     updated_at: string | null;
+    role: string | null;
+
 };
 
 export default async function AdminUsersPage() {
@@ -19,7 +21,7 @@ export default async function AdminUsersPage() {
     // 1) Pull profiles (base table)
     const { data: profiles, error: profilesError } = await supabase
         .from("profiles")
-        .select("id,email,full_name,business_name,onboarding_completed,created_at,updated_at")
+        .select("id,email,full_name,business_name,role,onboarding_completed,created_at,updated_at")
         .order("created_at", { ascending: false });
 
     if (profilesError) {
@@ -34,27 +36,7 @@ export default async function AdminUsersPage() {
     }
 
     const rows: UserRow[] = (profiles ?? []) as UserRow[];
-    const userIds = rows.map((r) => r.id);
-
-    // 2) Pull roles for these users (base table) and join in server code
-    // (No views in-app; this is your chosen architecture.)
-    const { data: roles, error: rolesError } = await supabase
-        .from("user_roles")
-        .select("user_id,role")
-        .in("user_id", userIds);
-
-    // Build role map: user_id -> roles[]
-    const roleMap = new Map<string, string[]>();
-    if (!rolesError && roles) {
-        for (const r of roles) {
-            const uid = r.user_id as string;
-            const role = r.role as string;
-            const existing = roleMap.get(uid) ?? [];
-            existing.push(role);
-            roleMap.set(uid, existing);
-        }
-    }
-
+   
     return (
         <div className="mx-auto w-full max-w-6xl space-y-4">
             <div className="flex items-start justify-between gap-3">
@@ -63,11 +45,7 @@ export default async function AdminUsersPage() {
                     <p className="text-sm text-muted-foreground">
                         Client profiles + onboarding status. Roles are joined server-side from <code>user_roles</code>.
                     </p>
-                    {rolesError ? (
-                        <p className="text-xs text-destructive">
-                            Roles join failed: {rolesError.message} (profiles still shown)
-                        </p>
-                    ) : null}
+                   
                 </div>
 
                 <Button asChild variant="outline">
@@ -98,10 +76,8 @@ export default async function AdminUsersPage() {
                                 </tr>
                             ) : (
                                 rows.map((u) => {
-                                    const rolesForUser = roleMap.get(u.id) ?? [];
-                                    // v1 expectation: exactly one role; if not, we show all for visibility.
-                                    const roleLabel =
-                                        rolesForUser.length === 0 ? "—" : rolesForUser.join(", ");
+                                    const roleLabel = u.role ?? "—";
+
 
                                     return (
                                         <tr key={u.id} className="[&>td]:px-3 [&>td]:py-2 align-top">
@@ -117,7 +93,8 @@ export default async function AdminUsersPage() {
                                             <td className="whitespace-nowrap">
                                                 <span
                                                     className={
-                                                        roleLabel.includes("admin")
+                                                        roleLabel === "admin"
+
                                                             ? "rounded-md bg-primary/10 px-2 py-0.5 font-medium text-primary"
                                                             : "rounded-md bg-muted px-2 py-0.5 font-medium text-foreground"
                                                     }
@@ -154,9 +131,7 @@ export default async function AdminUsersPage() {
                 </div>
             </div>
 
-            <p className="text-xs text-muted-foreground">
-                Next: we’ll create admin users so you can open a user and see their audit runs + results.
-            </p>
+           
         </div>
     );
 }

@@ -19,16 +19,16 @@ export default async function AdminLayout({
     }
 
     // Must be admin (server-side gate)
-    const { data: adminRole, error } = await supabase
-        .from("user_roles")
+    const { data: profile, error } = await supabase
+        .from("profiles")
         .select("role")
-        .eq("user_id", data.user.id)
-        .eq("role", "admin")
-        .maybeSingle();
+        .eq("id", data.user.id)
+        .single();
 
-    if (error || !adminRole) {
+    if (error || !profile || profile.role !== "admin") {
         redirect("/dashboard");
     }
+
 
     return (
         <div className="min-h-screen bg-muted/30">

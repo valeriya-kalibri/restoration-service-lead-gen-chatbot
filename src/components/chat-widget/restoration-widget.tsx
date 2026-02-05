@@ -18,13 +18,17 @@ type Props = {
 
     // API endpoints (override-able for iframe / multi-tenant)
     ingestUrl?: string; // default: /api/chat/ingest
-    configUrl?: string; // default: /api/chat/get-business-phone
+    configUrl?: string; // default: /api/chat/config
 };
 
 type StepId = "q1_inquiry" | "q2_timing" | "q3_location" | "q4_contact" | "q5_description" | "done";
 
 function cx(...a: Array<string | false | undefined | null>) {
     return a.filter(Boolean).join(" ");
+}
+
+function safeText(x: unknown): string | null {
+    return typeof x === "string" && x.trim() ? x.trim() : null;
 }
 
 function formatPhoneForDisplay(e164: string | null) {
@@ -39,12 +43,26 @@ function formatPhoneForDisplay(e164: string | null) {
     return e164;
 }
 
+function getOrCreateVisitorId(): string {
+    if (typeof window === "undefined") return "unknown";
+    const key = "kalibri_visitor_id";
+    const existing = window.localStorage.getItem(key);
+    if (existing) return existing;
+
+    const id =
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+            ? crypto.randomUUID()
+            : `v_${Math.random().toString(16).slice(2)}_${Date.now()}`;
+    window.localStorage.setItem(key, id);
+    return id;
+}
+
 export function RestorationWidget({
     mode = "demo",
     variant = "floating",
     widgetKey,
     ingestUrl = "/api/chat/ingest",
-    configUrl = "/api/chat/get-business-phone",
+    configUrl = "/api/chat/config",
 }: Props) {
     // Floating widget can be closed; embedded should always be visible.
     const [open, setOpen] = React.useState(true);
@@ -60,10 +78,12 @@ export function RestorationWidget({
     const [phone, setPhone] = React.useState("");
     const [email, setEmail] = React.useState("");
 
-    // ✅ NEW: optional description after contact
+    // optional description after contact
     const [description, setDescription] = React.useState("");
 
     const [businessPhone, setBusinessPhone] = React.useState<string | null>(null);
+    const [widgetEnabled, setWidgetEnabled] = React.useState<boolean>(true);
+    const [businessName, setBusinessName] = React.useState<string | null>(null);
 
     const [busy, setBusy] = React.useState(false);
     const [error, setError] = React.useState<string | null>(null);
@@ -73,30 +93,66 @@ export function RestorationWidget({
         if (variant === "embedded") setOpen(true);
     }, [variant]);
 
-    // Live mode: fetch business phone for Call/Text CTA (demo does NOT fetch)
+    // Live mode: fetch config (business phone + enabled flag) using widget_key
     React.useEffect(() => {
         if (mode !== "live") return;
 
+        // In production mode, widgetKey is required to resolve the client
+        if (!widgetKey) {
+            setBusinessPhone(null);
+            setWidgetEnabled(false);
+            setBusinessName(null);
+            return;
+        }
+
+        let cancelled = false;
+
         (async () => {
             try {
-                const url = new URL(configUrl, window.location.origin);
-                if (widgetKey) url.searchParams.set("key", widgetKey);
+                const res = await fetch(configUrl, {
+                    method: "POST",
+                    headers: { "content-type": "application/json" },
+                    body: JSON.stringify({ widget_key: widgetKey }),
+                });
 
-                const res = await fetch(url.toString(), { method: "GET" });
-                const json = await res.json().catch(() => ({}));
-                if (res.ok && typeof json?.business_phone === "string" && json.business_phone.trim()) {
-                    setBusinessPhone(json.business_phone);
-                } else {
+                const json = await res.json().catch(() => ({} as any));
+
+                if (cancelled) return;
+
+                if (!res.ok || json?.ok !== true) {
                     setBusinessPhone(null);
+                    setWidgetEnabled(false);
+                    setBusinessName(null);
+                    return;
                 }
+
+                const phone = safeText(json?.business_phone);
+                setBusinessPhone(phone);
+
+                setWidgetEnabled(json?.widget_enabled !== false);
+
+                const bn = safeText(json?.business_name);
+                setBusinessName(bn);
             } catch {
+                if (cancelled) return;
                 setBusinessPhone(null);
+                setWidgetEnabled(false);
+                setBusinessName(null);
             }
         })();
+
+        return () => {
+            cancelled = true;
+        };
     }, [mode, configUrl, widgetKey]);
 
-    async function ingest(event_type: string, payload?: { step_id?: string; value?: string; meta?: any }) {
+    async function ingest(
+        event_type: string,
+        payload?: { step_id?: string; value?: string; meta?: any }
+    ) {
         if (mode === "demo") return;
+
+        const visitor_id = getOrCreateVisitorId();
 
         const body: any = {
             session_id: sessionId ?? undefined,
@@ -110,6 +166,7 @@ export function RestorationWidget({
                 : {
                     page_url: typeof window !== "undefined" ? window.location.href : undefined,
                     referrer: typeof document !== "undefined" ? document.referrer : undefined,
+                    visitor_id,
                 },
         };
 
@@ -119,7 +176,7 @@ export function RestorationWidget({
             body: JSON.stringify(body),
         });
 
-        const json = await res.json().catch(() => ({}));
+        const json = await res.json().catch(() => ({} as any));
         if (!res.ok) throw new Error(json?.error ?? "Failed to ingest");
         if (json?.session_id && !sessionId) setSessionId(json.session_id);
     }
@@ -134,7 +191,7 @@ export function RestorationWidget({
         setName("");
         setPhone("");
         setEmail("");
-        setDescription(""); // ✅ NEW
+        setDescription("");
         setError(null);
     }
 
@@ -210,7 +267,7 @@ export function RestorationWidget({
                 },
             });
 
-            // ✅ AFTER Q4, go to Q5 description (not done)
+            // AFTER Q4, go to Q5 description
             setStep("q5_description");
         } catch (e: any) {
             setError(e?.message ?? "Failed");
@@ -219,7 +276,6 @@ export function RestorationWidget({
         }
     }
 
-    // ✅ NEW: submit/skip description
     async function onSubmitDescription() {
         setError(null);
         const d = description.trim();
@@ -256,6 +312,8 @@ export function RestorationWidget({
             ? "w-[360px] rounded-2xl border bg-background shadow-lg"
             : "w-full max-w-[420px] rounded-2xl border bg-background shadow-lg";
 
+    const canCallText = widgetEnabled && !!businessPhone;
+
     return (
         <div className={wrapperClass}>
             <div className={cx(cardClass, variant === "floating" && !open && "hidden")}>
@@ -277,7 +335,7 @@ export function RestorationWidget({
                     {step === "q1_inquiry" ? (
                         <div className="space-y-2">
                             <p className="text-sm text-muted-foreground">
-                                Hi — I’m [Company Name]’s emergency assistant.
+                                Hi — I’m {businessName ? `${businessName}` : "[Company Name]"}’s emergency assistant.
                                 <br />
                                 My job is to get the right help to you as quickly as possible.
                             </p>
@@ -436,7 +494,6 @@ export function RestorationWidget({
                                 </div>
                             </div>
 
-                            {/* Demo preview note ONLY */}
                             {mode === "demo" ? (
                                 <div className="rounded-md border p-3 text-xs text-muted-foreground space-y-2">
                                     <div className="font-medium text-foreground">Demo preview</div>
@@ -451,9 +508,9 @@ export function RestorationWidget({
                                 {/* CALL */}
                                 <Button asChild>
                                     <a
-                                        href={businessPhone ? `tel:${businessPhone}` : "#"}
+                                        href={canCallText ? `tel:${businessPhone}` : "#"}
                                         onClick={async (e) => {
-                                            if (!businessPhone) {
+                                            if (!canCallText) {
                                                 e.preventDefault();
                                                 return;
                                             }
@@ -472,14 +529,24 @@ export function RestorationWidget({
                                 {/* TEXT */}
                                 <Button asChild variant="outline">
                                     <a
-                                        href={businessPhone ? `sms:${businessPhone}` : "#"}
-                                        onClick={(e) => !businessPhone && e.preventDefault()}
+                                        href={canCallText ? `sms:${businessPhone}` : "#"}
+                                        onClick={async (e) => {
+                                            if (!canCallText) {
+                                                e.preventDefault();
+                                                return;
+                                            }
+                                            try {
+                                                await ingest("text_clicked", {
+                                                    step_id: "done",
+                                                    value: "text_initiated",
+                                                });
+                                            } catch { }
+                                        }}
                                     >
                                         Text the business
                                     </a>
                                 </Button>
 
-                                {/* Embedded gets reset button; floating gets close */}
                                 {variant === "embedded" ? (
                                     <Button variant="outline" onClick={reset}>
                                         Start over
@@ -493,7 +560,7 @@ export function RestorationWidget({
                                 ) : null}
                             </div>
 
-                            {!businessPhone ? (
+                            {!canCallText ? (
                                 <div className="text-xs text-muted-foreground">
                                     Add your business phone in <span className="font-medium">Settings</span> to enable
                                     Call/Text.

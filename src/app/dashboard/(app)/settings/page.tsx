@@ -102,6 +102,7 @@ export default async function SettingsPage() {
 
         const reason = String(formData.get("cancel_reason") ?? "").trim();
 
+        // Update cancellation fields directly (no RPC)
         const { error } = await supabase
             .from("profiles")
             .update({
@@ -116,6 +117,8 @@ export default async function SettingsPage() {
         await supabase.auth.signOut();
         redirect("/?cancelled=1");
     }
+
+
 
     const cancelled = profile.account_status === "cancelled";
 
@@ -230,9 +233,10 @@ export default async function SettingsPage() {
                 ) : (
                     <form action={cancelAccount} className="space-y-3">
                         <div className="space-y-1">
-                            <label className="text-xs font-medium text-muted-foreground">
-                                Cancellation reason (optional)
-                            </label>
+                                <label className="text-xs font-semibold text-primary">
+                                    Cancellation reason (optional)
+                                </label>
+
                             <input
                                 name="cancel_reason"
                                 placeholder="e.g., Not ready yet / Budget / Just testing"

@@ -74,13 +74,15 @@ export default async function AdminUserDetailPage({
     const p = profile as ProfileRow;
 
     // 2) Load roles
-    const { data: roles, error: rolesError } = await supabase
-        .from("user_roles")
-        .select("user_id,role,created_at")
-        .eq("user_id", id);
+    // 2) Load role (profiles.role is the source of truth in this template)
+    const { data: roleRow, error: roleError } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", id)
+        .single();
 
-    const roleList: RoleRow[] = (roles ?? []) as RoleRow[];
-    const roleLabel = roleList.length ? roleList.map((r) => r.role).join(", ") : "—";
+    const roleLabel = roleError ? "—" : (roleRow?.role ?? "—");
+
 
     return (
         <div className="mx-auto w-full max-w-6xl space-y-5">
@@ -122,9 +124,9 @@ export default async function AdminUserDetailPage({
                             >
                                 {roleLabel}
                             </span>
-                            {rolesError ? (
+                            {roleError ? (
                                 <div className="mt-1 text-xs text-destructive">
-                                    Roles load failed: {rolesError.message}
+                                    Roles load failed: {roleError.message}
                                 </div>
                             ) : null}
                         </div>

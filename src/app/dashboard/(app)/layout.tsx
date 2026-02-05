@@ -43,14 +43,15 @@ export default async function DashboardAppLayout({
     }
 
     // Admin flag (for showing Admin link)
-    const { data: adminRole } = await supabase
-        .from("user_roles")
+    // Admin flag (for showing Admin link) - use profiles.role
+    const { data: roleRow } = await supabase
+        .from("profiles")
         .select("role")
-        .eq("user_id", data.user.id)
-        .eq("role", "admin")
-        .maybeSingle();
+        .eq("id", data.user.id)
+        .single();
 
-    const isAdmin = !!adminRole;
+    const isAdmin = roleRow?.role === "admin";
+
 
     return (
         <div className="min-h-screen bg-muted/30">

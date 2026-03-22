@@ -10,18 +10,20 @@ type WidgetMode = "demo" | "live";
 type WidgetVariant = "floating" | "embedded";
 
 type Props = {
-    mode?: WidgetMode; // demo = no API calls, live = ingest events
-    variant?: WidgetVariant; // floating = bottom-right widget, embedded = inline block
-
-    // Identity / config
+    mode?: WidgetMode;
+    variant?: WidgetVariant;
     widgetKey?: string;
-
-    // API endpoints (override-able for iframe / multi-tenant)
-    ingestUrl?: string; // default: /api/chat/ingest
-    configUrl?: string; // default: /api/chat/config
+    ingestUrl?: string;
+    configUrl?: string;
 };
 
-type StepId = "q1_inquiry" | "q2_timing" | "q3_location" | "q4_contact" | "q5_description" | "done";
+type StepId =
+    | "q1_inquiry"
+    | "q2_timing"
+    | "q3_location"
+    | "q4_contact"
+    | "q5_description"
+    | "done";
 
 function cx(...a: Array<string | false | undefined | null>) {
     return a.filter(Boolean).join(" ");
@@ -53,6 +55,7 @@ function getOrCreateVisitorId(): string {
         typeof crypto !== "undefined" && "randomUUID" in crypto
             ? crypto.randomUUID()
             : `v_${Math.random().toString(16).slice(2)}_${Date.now()}`;
+
     window.localStorage.setItem(key, id);
     return id;
 }
@@ -64,7 +67,6 @@ export function RestorationWidget({
     ingestUrl = "/api/chat/ingest",
     configUrl = "/api/chat/config",
 }: Props) {
-    // Floating widget can be closed; embedded should always be visible.
     const [open, setOpen] = React.useState(true);
 
     const [step, setStep] = React.useState<StepId>("q1_inquiry");
@@ -77,8 +79,6 @@ export function RestorationWidget({
     const [name, setName] = React.useState("");
     const [phone, setPhone] = React.useState("");
     const [email, setEmail] = React.useState("");
-
-    // optional description after contact
     const [description, setDescription] = React.useState("");
 
     const [businessPhone, setBusinessPhone] = React.useState<string | null>(null);
@@ -88,16 +88,13 @@ export function RestorationWidget({
     const [busy, setBusy] = React.useState(false);
     const [error, setError] = React.useState<string | null>(null);
 
-    // Force embedded widget to always show (no launcher UX)
     React.useEffect(() => {
         if (variant === "embedded") setOpen(true);
     }, [variant]);
 
-    // Live mode: fetch config (business phone + enabled flag) using widget_key
     React.useEffect(() => {
         if (mode !== "live") return;
 
-        // In production mode, widgetKey is required to resolve the client
         if (!widgetKey) {
             setBusinessPhone(null);
             setWidgetEnabled(false);
@@ -109,17 +106,19 @@ export function RestorationWidget({
 
         (async () => {
             try {
-                const res = await fetch(configUrl, {
-                    method: "POST",
-                    headers: { "content-type": "application/json" },
-                    body: JSON.stringify({ widget_key: widgetKey }),
+                const url = new URL(configUrl, window.location.origin);
+                url.searchParams.set("key", widgetKey);
+
+                const res = await fetch(url.toString(), {
+                    method: "GET",
+                    headers: { accept: "application/json" },
                 });
 
                 const json = await res.json().catch(() => ({} as any));
 
                 if (cancelled) return;
 
-                if (!res.ok || json?.ok !== true) {
+                if (!res.ok) {
                     setBusinessPhone(null);
                     setWidgetEnabled(false);
                     setBusinessName(null);
@@ -127,12 +126,11 @@ export function RestorationWidget({
                 }
 
                 const phone = safeText(json?.business_phone);
-                setBusinessPhone(phone);
-
-                setWidgetEnabled(json?.widget_enabled !== false);
-
                 const bn = safeText(json?.business_name);
+
+                setBusinessPhone(phone);
                 setBusinessName(bn);
+                setWidgetEnabled(json?.widget_enabled !== false);
             } catch {
                 if (cancelled) return;
                 setBusinessPhone(null);
@@ -155,17 +153,19 @@ export function RestorationWidget({
         const visitor_id = getOrCreateVisitorId();
 
         const body: any = {
+            key: widgetKey ?? undefined,
             session_id: sessionId ?? undefined,
             event_type,
             step_id: payload?.step_id,
             value: payload?.value,
             meta: payload?.meta ?? undefined,
-            widget_key: widgetKey ?? undefined,
             session: sessionId
                 ? undefined
                 : {
-                    page_url: typeof window !== "undefined" ? window.location.href : undefined,
-                    referrer: typeof document !== "undefined" ? document.referrer : undefined,
+                    page_url:
+                        typeof window !== "undefined" ? window.location.href : undefined,
+                    referrer:
+                        typeof document !== "undefined" ? document.referrer : undefined,
                     visitor_id,
                 },
         };
@@ -227,13 +227,18 @@ export function RestorationWidget({
         setError(null);
         const c = city.trim();
         const z = zip.trim();
+
         if (!c || !z) {
             setError("Please enter city and ZIP.");
             return;
         }
+
         try {
             setBusy(true);
-            await ingest("location_submitted", { step_id: "q3_location", meta: { city: c, zip: z } });
+            await ingest("location_submitted", {
+                step_id: "q3_location",
+                meta: { city: c, zip: z },
+            });
             setStep("q4_contact");
         } catch (e: any) {
             setError(e?.message ?? "Failed");
@@ -267,7 +272,6 @@ export function RestorationWidget({
                 },
             });
 
-            // AFTER Q4, go to Q5 description
             setStep("q5_description");
         } catch (e: any) {
             setError(e?.message ?? "Failed");
@@ -280,7 +284,6 @@ export function RestorationWidget({
         setError(null);
         const d = description.trim();
 
-        // optional: if empty, treat as skip
         if (!d) {
             setStep("done");
             return;
@@ -288,7 +291,10 @@ export function RestorationWidget({
 
         try {
             setBusy(true);
-            await ingest("damage_described", { step_id: "q5_description", value: d });
+            await ingest("damage_described", {
+                step_id: "q5_description",
+                value: d,
+            });
             setStep("done");
         } catch (e: any) {
             setError(e?.message ?? "Failed");
@@ -304,8 +310,10 @@ export function RestorationWidget({
 
     const headerText = step === "done" ? "Request received" : "Fast emergency help";
 
-    // Layout: floating vs embedded
-    const wrapperClass = variant === "floating" ? "fixed bottom-4 right-4 z-50" : "w-full flex justify-center";
+    const wrapperClass =
+        variant === "floating"
+            ? "fixed bottom-4 right-4 z-50"
+            : "w-full flex justify-center";
 
     const cardClass =
         variant === "floating"
@@ -330,12 +338,11 @@ export function RestorationWidget({
                     ) : null}
                 </div>
 
-                <div className="px-4 py-3 space-y-3">
-                    {/* Q1 */}
+                <div className="space-y-3 px-4 py-3">
                     {step === "q1_inquiry" ? (
                         <div className="space-y-2">
                             <p className="text-sm text-muted-foreground">
-                                Hi — I’m {businessName ? `${businessName}` : "[Company Name]"}’s emergency assistant.
+                                Hi — I’m {businessName ? businessName : "[Company Name]"}’s emergency assistant.
                                 <br />
                                 My job is to get the right help to you as quickly as possible.
                             </p>
@@ -359,7 +366,6 @@ export function RestorationWidget({
                         </div>
                     ) : null}
 
-                    {/* Q2 */}
                     {step === "q2_timing" ? (
                         <div className="space-y-2">
                             <div className="text-sm font-medium">
@@ -376,7 +382,6 @@ export function RestorationWidget({
                         </div>
                     ) : null}
 
-                    {/* Q3 */}
                     {step === "q3_location" ? (
                         <div className="space-y-2">
                             <div className="text-sm font-medium">Where are you located?</div>
@@ -402,7 +407,6 @@ export function RestorationWidget({
                         </div>
                     ) : null}
 
-                    {/* Q4 */}
                     {step === "q4_contact" ? (
                         <div className="space-y-2">
                             <div className="text-sm font-medium">How can we reach you?</div>
@@ -440,7 +444,6 @@ export function RestorationWidget({
                         </div>
                     ) : null}
 
-                    {/* Q5 (after contact) */}
                     {step === "q5_description" ? (
                         <div className="space-y-2">
                             <div className="text-sm font-medium">Briefly describe what happened</div>
@@ -467,7 +470,6 @@ export function RestorationWidget({
                         </div>
                     ) : null}
 
-                    {/* DONE */}
                     {step === "done" ? (
                         <div className="space-y-3">
                             <div className="text-sm font-medium">Request received — help is being alerted</div>
@@ -495,7 +497,7 @@ export function RestorationWidget({
                             </div>
 
                             {mode === "demo" ? (
-                                <div className="rounded-md border p-3 text-xs text-muted-foreground space-y-2">
+                                <div className="space-y-2 rounded-md border p-3 text-xs text-muted-foreground">
                                     <div className="font-medium text-foreground">Demo preview</div>
                                     <div className="text-xs text-muted-foreground">
                                         Demo mode: Call/Text buttons are preview-only. Live mode uses the business number
@@ -505,7 +507,6 @@ export function RestorationWidget({
                             ) : null}
 
                             <div className="flex flex-wrap gap-2">
-                                {/* CALL */}
                                 <Button asChild>
                                     <a
                                         href={canCallText ? `tel:${businessPhone}` : "#"}
@@ -526,7 +527,6 @@ export function RestorationWidget({
                                     </a>
                                 </Button>
 
-                                {/* TEXT */}
                                 <Button asChild variant="outline">
                                     <a
                                         href={canCallText ? `sms:${businessPhone}` : "#"}
@@ -569,7 +569,6 @@ export function RestorationWidget({
                         </div>
                     ) : null}
 
-                    {/* Debug */}
                     <div className="pt-2 text-[11px] text-muted-foreground">
                         Mode: <span className="font-mono">{mode}</span>
                         {sessionId ? (
@@ -584,7 +583,6 @@ export function RestorationWidget({
                 </div>
             </div>
 
-            {/* Floating-only launcher */}
             {variant === "floating" && !open ? (
                 <Button className="rounded-full shadow-lg" onClick={() => setOpen(true)}>
                     Chat

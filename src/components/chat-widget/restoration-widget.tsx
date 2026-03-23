@@ -308,7 +308,7 @@ export function RestorationWidget({
         setStep("done");
     }
 
-    const headerText = step === "done" ? "Request received" : "Fast emergency help";
+    const headerText = step === "done" ? "Request received" : "FAST EMERGENCY HELP";
 
     const wrapperClass =
         variant === "floating"
@@ -334,7 +334,12 @@ export function RestorationWidget({
         <div className={wrapperClass}>
             <div className={cx(cardClass, variant === "floating" && !open && "hidden")}>
                 <div className="flex items-center justify-between border-b px-4 py-3">
-                    <div className="text-sm font-semibold">{headerText}</div>
+                    <div
+                        className="text-sm font-bold"
+                        style={{ color: primaryColor }}
+                    >
+                        {headerText}
+                    </div>
 
                     {variant === "floating" ? (
                         <button
@@ -349,8 +354,8 @@ export function RestorationWidget({
                 <div className="space-y-3 px-4 py-3">
                     {step === "q1_inquiry" ? (
                         <div className="space-y-2">
-                            <p className="text-sm text-muted-foreground">
-                                Hi — I’m {businessName ? businessName : "[Company Name]"}’s emergency assistant.
+                            <p className="text-sm text-foreground">
+                                I’m {businessName ? businessName : "[Company Name]"}’s emergency assistant.
                                 <br />
                                 My job is to get the right help to you as quickly as possible.
                             </p>

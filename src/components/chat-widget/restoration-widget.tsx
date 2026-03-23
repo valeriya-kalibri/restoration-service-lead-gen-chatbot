@@ -118,19 +118,17 @@ export function RestorationWidget({
 
                 if (cancelled) return;
 
-                if (!res.ok) {
+                if (!res.ok || json?.ok !== true) {
                     setBusinessPhone(null);
                     setWidgetEnabled(false);
                     setBusinessName(null);
                     return;
                 }
 
-                const phone = safeText(json?.business_phone);
-                const bn = safeText(json?.business_name);
-
-                setBusinessPhone(phone);
-                setBusinessName(bn);
+                setBusinessPhone(typeof json?.business_phone === "string" ? json.business_phone : null);
+                setBusinessName(typeof json?.business_name === "string" ? json.business_name : null);
                 setWidgetEnabled(json?.widget_enabled !== false);
+
             } catch {
                 if (cancelled) return;
                 setBusinessPhone(null);

@@ -13,18 +13,32 @@ type LoginFormProps = {
     onSuccess?: () => void;
 };
 
-export default function LoginForm({ onSwitchToRegister, onForgotPassword, onSuccess }: LoginFormProps) {
+function getBaseUrl() {
+    const fromEnv = process.env.NEXT_PUBLIC_APP_URL;
+    if (fromEnv && fromEnv.startsWith("http")) return fromEnv.replace(/\/$/, "");
+    if (typeof window !== "undefined") return window.location.origin.replace(/\/$/, "");
+    return "http://localhost:3000";
+}
+
+export default function LoginForm({
+    onSwitchToRegister,
+    onForgotPassword,
+    onSuccess,
+}: LoginFormProps) {
     const supabase = React.useMemo(() => createClient(), []);
     const router = useRouter();
 
     const [loading, setLoading] = React.useState(false);
+    const [resetLoading, setResetLoading] = React.useState(false);
     const [error, setError] = React.useState<string | null>(null);
+    const [message, setMessage] = React.useState<string | null>(null);
 
     const [emailValue, setEmailValue] = React.useState("");
 
     async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault();
         setError(null);
+        setMessage(null);
         setLoading(true);
 
         const formData = new FormData(e.currentTarget);
@@ -48,9 +62,40 @@ export default function LoginForm({ onSwitchToRegister, onForgotPassword, onSucc
         router.refresh();
     }
 
+    async function handleForgotPassword() {
+        setError(null);
+        setMessage(null);
+
+        const email = emailValue.trim();
+
+        if (!email) {
+            setError("Enter your email first, then click Forgot password.");
+            return;
+        }
+
+        setResetLoading(true);
+
+        try {
+            const redirectTo = `${getBaseUrl()}/auth/reset-password`;
+
+            const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                redirectTo,
+            });
+
+            if (error) {
+                setError(error.message);
+                return;
+            }
+
+            setMessage("Password reset email sent. Check your inbox.");
+            onForgotPassword?.();
+        } finally {
+            setResetLoading(false);
+        }
+    }
+
     return (
         <form onSubmit={onSubmit} className="space-y-4 px-4">
-            {/* Title */}
             <div className="space-y-1 text-center">
                 <div className="text-sm font-semibold">Log in</div>
                 <div className="text-xs text-muted-foreground">Welcome back</div>
@@ -62,7 +107,12 @@ export default function LoginForm({ onSwitchToRegister, onForgotPassword, onSucc
                 </div>
             ) : null}
 
-            {/* Email */}
+            {message ? (
+                <div className="rounded-md border px-3 py-2 text-xs text-muted-foreground">
+                    {message}
+                </div>
+            ) : null}
+
             <div className="space-y-2">
                 <label className="text-xs font-medium">Email</label>
                 <Input
@@ -76,7 +126,6 @@ export default function LoginForm({ onSwitchToRegister, onForgotPassword, onSucc
                 />
             </div>
 
-            {/* Password */}
             <div className="space-y-2">
                 <label className="text-xs font-medium">Password</label>
                 <Input
@@ -88,21 +137,20 @@ export default function LoginForm({ onSwitchToRegister, onForgotPassword, onSucc
                 />
             </div>
 
-            {/* Button */}
             <div className="flex justify-center pt-2">
-                <Button type="submit" disabled={loading} className="px-8">
+                <Button type="submit" disabled={loading || resetLoading} className="px-8">
                     {loading ? "Logging in..." : "Log in"}
                 </Button>
             </div>
 
-            {/* Footer actions */}
             <div className="flex items-center justify-between pt-1 text-xs">
                 <button
                     type="button"
                     className="text-muted-foreground underline-offset-4 hover:underline"
-                    onClick={onForgotPassword}
+                    onClick={handleForgotPassword}
+                    disabled={resetLoading}
                 >
-                    Forgot password?
+                    {resetLoading ? "Sending..." : "Forgot password?"}
                 </button>
 
                 <div className="flex items-center gap-2">

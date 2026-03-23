@@ -13,26 +13,48 @@ export default function ResetPasswordPage() {
     const [password, setPassword] = React.useState("");
     const [confirm, setConfirm] = React.useState("");
     const [loading, setLoading] = React.useState(false);
-    const [error, setError] = React.useState<string | null>(null);
     const [ready, setReady] = React.useState(false);
+    const [success, setSuccess] = React.useState(false);
+    const [error, setError] = React.useState<string | null>(null);
 
-    // Supabase sets a recovery session when arriving from the reset link.
     React.useEffect(() => {
         let mounted = true;
 
-        (async () => {
-            const { data, error } = await supabase.auth.getSession();
-            if (!mounted) return;
+        async function initRecoverySession() {
+            try {
+                const hash = typeof window !== "undefined" ? window.location.hash : "";
+                const hasRecoveryTokens =
+                    hash.includes("access_token=") || hash.includes("type=recovery");
 
-            // If no session, user didn't come from the email link (or it expired).
-            if (error || !data.session) {
+                // If tokens are in the URL fragment, let Supabase read them and establish session.
+                if (hasRecoveryTokens) {
+                    const { error } = await supabase.auth.getSession();
+                    if (error && mounted) {
+                        setError("This reset link is invalid or expired. Please request a new one.");
+                        setReady(true);
+                        return;
+                    }
+                }
+
+                const { data, error } = await supabase.auth.getSession();
+
+                if (!mounted) return;
+
+                if (error || !data.session) {
+                    setError("This reset link is invalid or expired. Please request a new one.");
+                    setReady(true);
+                    return;
+                }
+
+                setReady(true);
+            } catch {
+                if (!mounted) return;
                 setError("This reset link is invalid or expired. Please request a new one.");
                 setReady(true);
-                return;
             }
+        }
 
-            setReady(true);
-        })();
+        initRecoverySession();
 
         return () => {
             mounted = false;
@@ -47,26 +69,35 @@ export default function ResetPasswordPage() {
             setError("Password must be at least 8 characters.");
             return;
         }
+
         if (password !== confirm) {
             setError("Passwords do not match.");
             return;
         }
 
-        setLoading(true);
+        try {
+            setLoading(true);
 
-        const { error } = await supabase.auth.updateUser({ password });
-        if (error) {
-            setError(error.message);
+            const { error } = await supabase.auth.updateUser({ password });
+
+            if (error) {
+                setError(error.message);
+                return;
+            }
+
+            setSuccess(true);
+
+            // Small pause so user sees success, then send to login.
+            setTimeout(() => {
+                router.replace("/");
+            }, 1200);
+        } finally {
             setLoading(false);
-            return;
         }
-
-        // Go through your existing smart redirect
-        router.replace("/auth/callback");
     }
 
     return (
-        <div className="mx-auto max-w-md px-4 py-10 space-y-4">
+        <div className="mx-auto max-w-md space-y-4 px-4 py-10">
             <div className="space-y-1">
                 <h1 className="text-xl font-semibold text-primary">Reset password</h1>
                 <p className="text-sm text-muted-foreground">
@@ -76,8 +107,12 @@ export default function ResetPasswordPage() {
 
             {!ready ? (
                 <div className="text-sm text-muted-foreground">Loading…</div>
+            ) : success ? (
+                <div className="rounded-lg border bg-background p-4 text-sm text-muted-foreground">
+                    Password updated successfully. Redirecting…
+                </div>
             ) : (
-                <form onSubmit={onSubmit} className="rounded-lg border bg-background p-4 space-y-3">
+                <form onSubmit={onSubmit} className="space-y-3 rounded-lg border bg-background p-4">
                     <div className="space-y-1">
                         <div className="text-sm font-medium text-primary">New password</div>
                         <Input

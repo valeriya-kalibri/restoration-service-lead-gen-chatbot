@@ -328,6 +328,11 @@ export function RestorationWidget({
         color: "#ffffff",
     };
 
+    const primaryGhostButtonStyle = {
+        borderColor: primaryColor,
+        color: primaryColor,
+    };
+
     return (
         <div className={wrapperClass}>
             <div className={cx(cardClass, variant === "floating" && !open && "hidden")}>
@@ -356,16 +361,36 @@ export function RestorationWidget({
                             <div className="text-sm font-medium">What happened?</div>
 
                             <div className="flex flex-wrap gap-2">
-                                <Button disabled={busy} variant="outline" onClick={() => onSelectInquiry("water")}>
+                                <Button
+                                    disabled={busy}
+                                    variant={inquiry === "water" ? "default" : "outline"}
+                                    style={inquiry === "water" ? primaryButtonStyle : primaryGhostButtonStyle}
+                                    onClick={() => onSelectInquiry("water")}
+                                >
                                     Water damage
                                 </Button>
-                                <Button disabled={busy} variant="outline" onClick={() => onSelectInquiry("fire")}>
+                                <Button
+                                    disabled={busy}
+                                    variant={inquiry === "fire" ? "default" : "outline"}
+                                    style={inquiry === "fire" ? primaryButtonStyle : primaryGhostButtonStyle}
+                                    onClick={() => onSelectInquiry("fire")}
+                                >
                                     Fire damage
                                 </Button>
-                                <Button disabled={busy} variant="outline" onClick={() => onSelectInquiry("mold")}>
+                                <Button
+                                    disabled={busy}
+                                    variant={inquiry === "mold" ? "default" : "outline"}
+                                    style={inquiry === "mold" ? primaryButtonStyle : primaryGhostButtonStyle}
+                                    onClick={() => onSelectInquiry("mold")}
+                                >
                                     Mold
                                 </Button>
-                                <Button disabled={busy} variant="outline" onClick={() => onSelectInquiry("not_sure")}>
+                                <Button
+                                    disabled={busy}
+                                    variant={inquiry === "not_sure" ? "default" : "outline"}
+                                    style={inquiry === "not_sure" ? primaryButtonStyle : primaryGhostButtonStyle}
+                                    onClick={() => onSelectInquiry("not_sure")}
+                                >
                                     Not sure / other
                                 </Button>
                             </div>
@@ -378,10 +403,21 @@ export function RestorationWidget({
                                 Is the problem happening right now, or has it already stopped?
                             </div>
                             <div className="flex flex-wrap gap-2">
-                                <Button disabled={busy} variant="outline" onClick={() => onSelectTiming("ongoing")}>
+                                <Button
+                                    disabled={busy}
+                                    variant={timing === "ongoing" ? "default" : "outline"}
+                                    style={timing === "ongoing" ? primaryButtonStyle : primaryGhostButtonStyle}
+                                    onClick={() => onSelectTiming("ongoing")}
+                                >
                                     Happening now
                                 </Button>
-                                <Button disabled={busy} variant="outline" onClick={() => onSelectTiming("stopped")}>
+
+                                <Button
+                                    disabled={busy}
+                                    variant={timing === "stopped" ? "default" : "outline"}
+                                    style={timing === "stopped" ? primaryButtonStyle : primaryGhostButtonStyle}
+                                    onClick={() => onSelectTiming("stopped")}
+                                >
                                     Already stopped
                                 </Button>
                             </div>

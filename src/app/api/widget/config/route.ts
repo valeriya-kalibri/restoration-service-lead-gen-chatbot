@@ -15,7 +15,7 @@ export async function GET(req: Request) {
 
     const { data: profile, error } = await supabase
         .from("profiles")
-        .select("id, business_name, business_phone, widget_key")
+        .select("id, business_phone, business_name, primary_color")
         .eq("widget_key", key)
         .maybeSingle();
 
@@ -30,8 +30,9 @@ export async function GET(req: Request) {
     return NextResponse.json({
         ok: true,
         client_id: profile.id,
-        business_name: profile.business_name ?? null,
         business_phone: profile.business_phone ?? null,
+        business_name: profile.business_name ?? null,
+        primary_color: profile.primary_color ?? "#2563eb",
         widget_enabled: true,
     });
 }

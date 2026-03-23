@@ -31,7 +31,7 @@ export default async function SettingsPage() {
     const { data: profile, error } = await supabase
         .from("profiles")
         .select(
-            "email,full_name,business_name,phone,business_description,account_status,cancelled_at,cancel_reason"
+            "email,full_name,business_name,business_phone,business_description,account_status,cancelled_at,cancel_reason"
         )
         .eq("id", auth.user.id)
         .single();
@@ -56,39 +56,24 @@ export default async function SettingsPage() {
 
         const full_name = String(formData.get("full_name") ?? "").trim();
         const business_name = String(formData.get("business_name") ?? "").trim();
-        const phoneRaw = String(formData.get("phone") ?? "").trim();
+        const phoneRaw = String(formData.get("business_phone") ?? "").trim();
         const business_description = String(formData.get("business_description") ?? "").trim();
 
         // 1) Save profile as before
+        const e164 = normalizeUSPhoneToE164(phoneRaw);
+
         const { error } = await supabase
             .from("profiles")
             .update({
                 full_name: full_name.length ? full_name : null,
                 business_name: business_name.length ? business_name : null,
-                phone: phoneRaw.length ? phoneRaw : null,
+                business_phone: e164,
                 business_description: business_description.length ? business_description : null,
             })
             .eq("id", auth.user.id);
 
         if (error) throw new Error(error.message);
-
-        // 2) ALSO save business_phone for SMS routing (chatbot_settings)
-        //    We normalize to E.164 (+1...) so Twilio works reliably.
-        const e164 = normalizeUSPhoneToE164(phoneRaw);
-
-        if (e164) {
-            const { error: setErr } = await supabase
-                .from("chatbot_settings")
-                .upsert(
-                    {
-                        client_id: auth.user.id,
-                        business_phone: e164,
-                    },
-                    { onConflict: "client_id" }
-                );
-
-            if (setErr) throw new Error(setErr.message);
-        }
+       
 
         redirect("/dashboard/settings?saved=1");
     }
@@ -169,8 +154,8 @@ export default async function SettingsPage() {
                     <div className="space-y-1">
                         <label className="text-xs font-medium text-muted-foreground">Phone</label>
                         <input
-                            name="phone"
-                            defaultValue={profile.phone ?? ""}
+                            name="business_phone"
+                            defaultValue={profile.business_phone ?? ""}
                             placeholder="e.g., 4077507560"
                             className="h-9 w-full rounded-md border bg-transparent px-3 text-sm"
                             disabled={cancelled}

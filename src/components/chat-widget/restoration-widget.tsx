@@ -84,6 +84,7 @@ export function RestorationWidget({
     const [businessPhone, setBusinessPhone] = React.useState<string | null>(null);
     const [widgetEnabled, setWidgetEnabled] = React.useState<boolean>(true);
     const [businessName, setBusinessName] = React.useState<string | null>(null);
+    const [primaryColor, setPrimaryColor] = React.useState<string>("#2563eb");
 
     const [busy, setBusy] = React.useState(false);
     const [error, setError] = React.useState<string | null>(null);
@@ -128,6 +129,7 @@ export function RestorationWidget({
                 setBusinessPhone(typeof json?.business_phone === "string" ? json.business_phone : null);
                 setBusinessName(typeof json?.business_name === "string" ? json.business_name : null);
                 setWidgetEnabled(json?.widget_enabled !== false);
+                setPrimaryColor(typeof json?.primary_color === "string" ? json.primary_color : "#2563eb");
 
             } catch {
                 if (cancelled) return;
@@ -320,6 +322,12 @@ export function RestorationWidget({
 
     const canCallText = widgetEnabled && !!businessPhone;
 
+    const primaryButtonStyle = {
+        backgroundColor: primaryColor,
+        borderColor: primaryColor,
+        color: "#ffffff",
+    };
+
     return (
         <div className={wrapperClass}>
             <div className={cx(cardClass, variant === "floating" && !open && "hidden")}>
@@ -399,7 +407,11 @@ export function RestorationWidget({
                                     disabled={busy}
                                 />
                             </div>
-                            <Button disabled={busy} onClick={onSubmitLocation}>
+                            <Button
+                                disabled={busy}
+                                onClick={onSubmitLocation}
+                                style={primaryButtonStyle}
+                            >
                                 Continue
                             </Button>
                         </div>
@@ -411,7 +423,7 @@ export function RestorationWidget({
                             <div className="space-y-2">
                                 <input
                                     className="h-9 w-full rounded-md border bg-transparent px-3 text-sm"
-                                    placeholder="Name"
+                                    placeholder="Full Name (required)"
                                     value={name}
                                     onChange={(e) => setName(e.target.value)}
                                     disabled={busy}
@@ -436,7 +448,11 @@ export function RestorationWidget({
                                 We’ll text you a confirmation and the business will reach out ASAP.
                             </div>
 
-                            <Button disabled={busy} onClick={onSubmitContact}>
+                            <Button
+                                disabled={busy}
+                                onClick={onSubmitContact}
+                                style={primaryButtonStyle}
+                            >
                                 Submit
                             </Button>
                         </div>
@@ -458,7 +474,11 @@ export function RestorationWidget({
                             />
 
                             <div className="flex flex-wrap gap-2">
-                                <Button disabled={busy} onClick={onSubmitDescription}>
+                                <Button
+                                    disabled={busy}
+                                    onClick={onSubmitDescription}
+                                    style={primaryButtonStyle}
+                                >
                                     Continue
                                 </Button>
                                 <Button disabled={busy} variant="outline" onClick={onSkipDescription}>
@@ -567,15 +587,7 @@ export function RestorationWidget({
                         </div>
                     ) : null}
 
-                    <div className="pt-2 text-[11px] text-muted-foreground">
-                        Mode: <span className="font-mono">{mode}</span>
-                        {sessionId ? (
-                            <>
-                                {" "}
-                                • Session: <span className="font-mono">{sessionId}</span>
-                            </>
-                        ) : null}
-                    </div>
+                   
 
                     {error ? <div className="text-sm text-destructive">{error}</div> : null}
                 </div>

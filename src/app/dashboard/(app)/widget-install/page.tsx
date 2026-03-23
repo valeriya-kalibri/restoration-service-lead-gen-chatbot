@@ -8,16 +8,12 @@ function safeStr(x: unknown) {
 }
 
 function getBaseUrl() {
-    // ✅ You should set NEXT_PUBLIC_APP_URL in .env.local and in Vercel env vars.
-    // Example: https://your-vercel-app.vercel.app
     const fromEnv = process.env.NEXT_PUBLIC_APP_URL;
     if (fromEnv && fromEnv.startsWith("http")) return fromEnv.replace(/\/$/, "");
 
-    // Fallback for Vercel (server-side only)
     const vercel = process.env.VERCEL_URL;
     if (vercel) return `https://${vercel}`.replace(/\/$/, "");
 
-    // Local fallback
     return "http://localhost:3000";
 }
 
@@ -28,45 +24,31 @@ export default async function WidgetInstallPage() {
 
     const clientId = auth.user.id;
 
-    // Friendly business name (optional)
-    const { data: profile } = await supabase
+    const { data: profile, error: profileErr } = await supabase
         .from("profiles")
-        .select("business_name")
+        .select("business_name, widget_key")
         .eq("id", clientId)
         .maybeSingle();
 
-    const businessName = safeStr(profile?.business_name) ?? "your business";
-
-    // Ensure chatbot_settings exists + has widget_key
-    const { data: existingSettings, error: settingsReadErr } = await supabase
-        .from("chatbot_settings")
-        .select("client_id, widget_key")
-        .eq("client_id", clientId)
-        .maybeSingle();
-
-    if (settingsReadErr) {
-        // If this fails, it’s usually RLS/policy or table mismatch
-        // Keep it simple for now: just show page without embed.
+    if (profileErr) {
+        // keep page rendering, but embed may fail if DB is broken
     }
 
-    let widgetKey = safeStr(existingSettings?.widget_key);
+    const businessName = safeStr(profile?.business_name) ?? "your business";
+
+    let widgetKey = safeStr(profile?.widget_key);
 
     if (!widgetKey) {
         widgetKey = crypto.randomUUID();
 
-        // Upsert so first-time users don’t break
         await supabase
-            .from("chatbot_settings")
-            .upsert(
-                { client_id: clientId, widget_key: widgetKey },
-                { onConflict: "client_id" }
-            );
+            .from("profiles")
+            .update({ widget_key: widgetKey })
+            .eq("id", clientId);
     }
 
     const baseUrl = getBaseUrl();
 
-    // ✅ This is what the client copies.
-    // They do NOT need to understand the key — it’s embedded already.
     const embedCode = `<!-- Kalibri Restoration Lead Widget -->
 <div id="kalibri-restoration-widget"></div>
 
@@ -125,7 +107,6 @@ export default async function WidgetInstallPage() {
                 title="Embed code"
                 description="Copy/paste this into your website (before </body>)."
                 code={embedCode}
-                
             />
         </div>
     );

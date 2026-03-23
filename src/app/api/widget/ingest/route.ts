@@ -57,18 +57,24 @@ export async function POST(req: Request) {
     if (!body.event_type) return NextResponse.json({ error: "Missing event_type" }, { status: 400 });
 
     // 0) Resolve client_id from widget_key
-    const { data: settings, error: setErr } = await supabase
-        .from("chatbot_settings")
-        .select("client_id, business_phone, business_name")
+    // 0) Resolve client_id from widget_key directly from profiles
+    const { data: profile, error: profileErr } = await supabase
+        .from("profiles")
+        .select("id, business_name, business_phone, widget_key")
         .eq("widget_key", body.key)
         .maybeSingle();
 
-    if (setErr) return NextResponse.json({ error: setErr.message }, { status: 500 });
-    if (!settings?.client_id) return NextResponse.json({ error: "Invalid key" }, { status: 404 });
+    if (profileErr) {
+        return NextResponse.json({ error: profileErr.message }, { status: 500 });
+    }
 
-    const clientId = settings.client_id;
-    const businessPhone = normalizePhone(settings.business_phone);
-    const businessName = safeText(settings.business_name) ?? "Restoration team";
+    if (!profile?.id) {
+        return NextResponse.json({ error: "Invalid key" }, { status: 404 });
+    }
+
+    const clientId = profile.id;
+    const businessPhone = normalizePhone(profile.business_phone);
+    const businessName = safeText(profile.business_name) ?? "Restoration team";
 
     // 1) Ensure session exists
     let sessionId = body.session_id;

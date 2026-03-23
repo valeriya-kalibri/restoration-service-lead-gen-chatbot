@@ -13,9 +13,9 @@ export async function GET(req: Request) {
 
     const supabase = createAdminClient();
 
-    const { data, error } = await supabase
-        .from("chatbot_settings")
-        .select("client_id, business_phone, business_name, widget_key, widget_enabled")
+    const { data: profile, error } = await supabase
+        .from("profiles")
+        .select("id, business_name, business_phone, widget_key")
         .eq("widget_key", key)
         .maybeSingle();
 
@@ -23,15 +23,15 @@ export async function GET(req: Request) {
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    if (!data) {
+    if (!profile?.id) {
         return NextResponse.json({ error: "Invalid key" }, { status: 404 });
     }
 
     return NextResponse.json({
         ok: true,
-        client_id: data.client_id,
-        business_phone: data.business_phone ?? null,
-        business_name: data.business_name ?? null,
-        widget_enabled: data.widget_enabled ?? true,
+        client_id: profile.id,
+        business_name: profile.business_name ?? null,
+        business_phone: profile.business_phone ?? null,
+        widget_enabled: true,
     });
 }

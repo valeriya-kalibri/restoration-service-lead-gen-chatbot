@@ -328,10 +328,7 @@ export function RestorationWidget({
         color: "#ffffff",
     };
 
-    const primaryGhostButtonStyle = {
-        borderColor: primaryColor,
-        color: primaryColor,
-    };
+
 
     return (
         <div className={wrapperClass}>
@@ -363,33 +360,29 @@ export function RestorationWidget({
                             <div className="flex flex-wrap gap-2">
                                 <Button
                                     disabled={busy}
-                                    variant={inquiry === "water" ? "default" : "outline"}
-                                    style={inquiry === "water" ? primaryButtonStyle : primaryGhostButtonStyle}
                                     onClick={() => onSelectInquiry("water")}
+                                    style={primaryButtonStyle}
                                 >
                                     Water damage
                                 </Button>
                                 <Button
                                     disabled={busy}
-                                    variant={inquiry === "fire" ? "default" : "outline"}
-                                    style={inquiry === "fire" ? primaryButtonStyle : primaryGhostButtonStyle}
                                     onClick={() => onSelectInquiry("fire")}
+                                    style={primaryButtonStyle}
                                 >
                                     Fire damage
                                 </Button>
                                 <Button
                                     disabled={busy}
-                                    variant={inquiry === "mold" ? "default" : "outline"}
-                                    style={inquiry === "mold" ? primaryButtonStyle : primaryGhostButtonStyle}
                                     onClick={() => onSelectInquiry("mold")}
+                                    style={primaryButtonStyle}
                                 >
                                     Mold
                                 </Button>
                                 <Button
                                     disabled={busy}
-                                    variant={inquiry === "not_sure" ? "default" : "outline"}
-                                    style={inquiry === "not_sure" ? primaryButtonStyle : primaryGhostButtonStyle}
                                     onClick={() => onSelectInquiry("not_sure")}
+                                    style={primaryButtonStyle}
                                 >
                                     Not sure / other
                                 </Button>
@@ -405,18 +398,16 @@ export function RestorationWidget({
                             <div className="flex flex-wrap gap-2">
                                 <Button
                                     disabled={busy}
-                                    variant={timing === "ongoing" ? "default" : "outline"}
-                                    style={timing === "ongoing" ? primaryButtonStyle : primaryGhostButtonStyle}
                                     onClick={() => onSelectTiming("ongoing")}
+                                    style={primaryButtonStyle}
                                 >
                                     Happening now
                                 </Button>
 
                                 <Button
                                     disabled={busy}
-                                    variant={timing === "stopped" ? "default" : "outline"}
-                                    style={timing === "stopped" ? primaryButtonStyle : primaryGhostButtonStyle}
                                     onClick={() => onSelectTiming("stopped")}
+                                    style={primaryButtonStyle}
                                 >
                                     Already stopped
                                 </Button>
@@ -517,7 +508,11 @@ export function RestorationWidget({
                                 >
                                     Continue
                                 </Button>
-                                <Button disabled={busy} variant="outline" onClick={onSkipDescription}>
+                                <Button
+                                    disabled={busy}
+                                    variant="outline"
+                                    onClick={onSkipDescription}
+                                >
                                     Skip
                                 </Button>
                             </div>

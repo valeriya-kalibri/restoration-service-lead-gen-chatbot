@@ -10,14 +10,9 @@ type SessionRow = {
   id: string;
   created_at: string;
   last_step_id: string | null;
-  outcome: string | null;
   inquiry_type: string | null;
-};
-
-type EventRow = {
-  event_type: string;
-  created_at: string;
-  session_id: string | null;
+  lead_status: string | null;
+  action_outcome: string | null;
 };
 
 function clampRange(raw: string | undefined) {
@@ -50,7 +45,7 @@ export default async function AnalyticsPage({ searchParams }: PageProps) {
 
   let sessionsQuery = supabase
     .from("chat_sessions")
-    .select("id, created_at, last_step_id, outcome, inquiry_type")
+    .select("id, created_at, last_step_id, inquiry_type, lead_status, action_outcome")
     .gte("created_at", since)
     .order("created_at", { ascending: false })
     .limit(5000);
@@ -59,58 +54,34 @@ export default async function AnalyticsPage({ searchParams }: PageProps) {
     sessionsQuery = sessionsQuery.eq("inquiry_type", inquiryFilter);
   }
 
-  const { data: sessionsData, error: sessionsError } = await sessionsQuery.returns<SessionRow[]>();
+  const { data, error } = await sessionsQuery.returns<SessionRow[]>();
 
-  if (sessionsError) {
+  if (error) {
     return (
       <div className="space-y-2">
         <h1 className="text-lg font-semibold">Analytics</h1>
         <div className="rounded-md border p-3 text-sm">
-          Error loading analytics: {sessionsError.message}
+          Error loading analytics: {error.message}
         </div>
       </div>
     );
   }
 
-  const sessions = Array.isArray(sessionsData) ? sessionsData : [];
+  const sessions = Array.isArray(data) ? data : [];
   const total = sessions.length;
 
-  const sessionIds = new Set(sessions.map((s) => s.id));
+  const leadCaptured = sessions.filter((s) => s.lead_status === "lead_captured").length;
+  const leadNotCaptured = sessions.filter((s) => s.lead_status === "lead_not_captured").length;
 
-  const { data: eventsData, error: eventsError } = await supabase
-    .from("chat_events")
-    .select("event_type, created_at, session_id")
-    .gte("created_at", since)
-    .returns<EventRow[]>();
-
-  if (eventsError) {
-    return (
-      <div className="space-y-2">
-        <h1 className="text-lg font-semibold">Analytics</h1>
-        <div className="rounded-md border p-3 text-sm">
-          Error loading analytics events: {eventsError.message}
-        </div>
-      </div>
-    );
-  }
-
-  const events = Array.isArray(eventsData) ? eventsData : [];
-
-  const callInitiated = sessions.filter((s) => s.outcome === "call_initiated").length;
-  const callbackRequested = sessions.filter((s) => s.outcome === "callback_requested").length;
-  const leadCaptured = sessions.filter((s) => s.outcome === "lead_captured").length;
-  const abandoned = sessions.filter((s) => s.outcome === "abandoned").length;
-  const unknown = sessions.filter((s) => !s.outcome || s.outcome === "unknown").length;
-
-  const smsSessionIds = new Set(
-    events
-      .filter((e) => e.event_type === "text_initiated" && !!e.session_id && sessionIds.has(e.session_id))
-      .map((e) => e.session_id as string)
-  );
-  const smsClicked = smsSessionIds.size;
+  const callInitiated = sessions.filter((s) => s.action_outcome === "call_initiated").length;
+  const callbackRequested = sessions.filter((s) => s.action_outcome === "callback_requested").length;
+  const smsInitiated = sessions.filter((s) => s.action_outcome === "sms_initiated").length;
+  const unknown = sessions.filter((s) => !s.action_outcome || s.action_outcome === "unknown").length;
 
   const conversions = leadCaptured;
   const conversionRate = total > 0 ? (conversions / total) * 100 : 0;
+
+  const abandoned = leadNotCaptured;
 
   const stepCounts = new Map<string, number>();
   for (const s of sessions) {
@@ -138,12 +109,13 @@ export default async function AnalyticsPage({ searchParams }: PageProps) {
         <div className="space-y-3">
           <h1 className="text-lg font-semibold">Analytics</h1>
 
-          <p className="mb-8 text-sm font-bold text-primary">
+          <p className="mb-2 text-sm font-bold text-primary">
             TRACK OUTCOMES AND USER DROP OFF POINTS
           </p>
 
           <p className="text-sm text-muted-foreground">
-            Conversion rate represents the percentage of visitors who submitted their contact information and became a lead.
+            Conversion rate represents the percentage of visitors who submitted their contact
+            information and became a lead.
           </p>
 
           <p className="text-sm text-muted-foreground">
@@ -201,7 +173,7 @@ export default async function AnalyticsPage({ searchParams }: PageProps) {
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <div className="rounded-md border p-4">
-          <div className="text-sm font-bold text-primary">Total Sessions</div>
+          <div className="text-sm font-semibold text-primary">Total Sessions</div>
           <div className="mt-1 text-3xl font-bold text-primary">{total}</div>
         </div>
 
@@ -224,42 +196,54 @@ export default async function AnalyticsPage({ searchParams }: PageProps) {
 
       <div className="rounded-md border p-4">
         <div className="text-base font-bold text-primary tracking-tight">
-          Outcome Breakdown
+          Outcome breakdown
         </div>
 
         <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-6">
           <div className="rounded-md border p-3">
-            <div className="text-xs text-muted-foreground leading-tight h-8">Call Initiated</div>
+            <div className="h-8 text-xs leading-tight text-muted-foreground">
+              Call Initiated
+            </div>
             <div className="mt-1 text-xl font-semibold">{callInitiated}</div>
             <div className="mt-1 text-xs text-muted-foreground">{pct(callInitiated)}%</div>
           </div>
 
           <div className="rounded-md border p-3">
-            <div className="text-xs text-muted-foreground leading-tight h-8">Callback Requested</div>
+            <div className="h-8 text-xs leading-tight text-muted-foreground">
+              Callback Requested
+            </div>
             <div className="mt-1 text-xl font-semibold">{callbackRequested}</div>
             <div className="mt-1 text-xs text-muted-foreground">{pct(callbackRequested)}%</div>
           </div>
 
           <div className="rounded-md border p-3">
-            <div className="text-xs text-muted-foreground leading-tight h-8">SMS Clicked</div>
-            <div className="mt-1 text-xl font-semibold">{smsClicked}</div>
-            <div className="mt-1 text-xs text-muted-foreground">{pct(smsClicked)}%</div>
+            <div className="h-8 text-xs leading-tight text-muted-foreground">
+              SMS Initiated
+            </div>
+            <div className="mt-1 text-xl font-semibold">{smsInitiated}</div>
+            <div className="mt-1 text-xs text-muted-foreground">{pct(smsInitiated)}%</div>
           </div>
 
           <div className="rounded-md border p-3">
-            <div className="text-xs text-muted-foreground leading-tight h-8">Lead Captured</div>
+            <div className="h-8 text-xs leading-tight text-muted-foreground">
+              Lead Captured
+            </div>
             <div className="mt-1 text-xl font-semibold">{leadCaptured}</div>
             <div className="mt-1 text-xs text-muted-foreground">{pct(leadCaptured)}%</div>
           </div>
 
           <div className="rounded-md border p-3">
-            <div className="text-xs text-muted-foreground leading-tight h-8">Abandoned</div>
+            <div className="h-8 text-xs leading-tight text-muted-foreground">
+              Lead Not Captured
+            </div>
             <div className="mt-1 text-xl font-semibold">{abandoned}</div>
             <div className="mt-1 text-xs text-muted-foreground">{pct(abandoned)}%</div>
           </div>
 
           <div className="rounded-md border p-3">
-            <div className="text-xs text-muted-foreground leading-tight h-8">Unknown</div>
+            <div className="h-8 text-xs leading-tight text-muted-foreground">
+              Unknown
+            </div>
             <div className="mt-1 text-xl font-semibold">{unknown}</div>
             <div className="mt-1 text-xs text-muted-foreground">{pct(unknown)}%</div>
           </div>
@@ -268,7 +252,7 @@ export default async function AnalyticsPage({ searchParams }: PageProps) {
 
       <div className="rounded-md border p-4">
         <div className="text-base font-bold text-primary tracking-tight">
-          Where conversation stopped
+          Where you’re losing leads
         </div>
         <div className="mt-1 text-xs text-muted-foreground">
           Last question users answered before leaving

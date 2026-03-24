@@ -175,7 +175,8 @@ export async function POST(req: Request) {
                 referrer: s.referrer ?? null,
                 visitor_id: s.visitor_id ?? null,
                 last_step_id: body.step_id ?? null,
-                outcome: "unknown",
+                lead_status: "lead_not_captured",
+                action_outcome: "unknown",
             })
             .select("id")
             .single();
@@ -248,7 +249,7 @@ export async function POST(req: Request) {
     if (body.event_type === "call_clicked") {
         await supabase
             .from("chat_sessions")
-            .update({ outcome: "call_initiated", ended_at: new Date().toISOString() })
+            .update({ action_outcome: "call_initiated", ended_at: new Date().toISOString() })
             .eq("id", sid)
             .eq("client_id", clientId);
     }
@@ -257,7 +258,7 @@ export async function POST(req: Request) {
     if (body.event_type === "text_clicked") {
         await supabase
             .from("chat_sessions")
-            .update({ outcome: "lead_captured", ended_at: new Date().toISOString() })
+            .update({ action_outcome: "sms_initiated", ended_at: new Date().toISOString() })
             .eq("id", sid)
             .eq("client_id", clientId);
     }
@@ -298,8 +299,7 @@ export async function POST(req: Request) {
                 lead_email,
                 preferred_contact,
                 business_phone: businessPhone,
-                outcome: "callback_requested",
-                ended_at: new Date().toISOString(),
+                lead_status: "lead_captured",
             })
             .eq("id", sid)
             .eq("client_id", clientId);

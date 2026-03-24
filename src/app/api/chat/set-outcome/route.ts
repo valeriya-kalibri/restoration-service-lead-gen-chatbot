@@ -1,19 +1,17 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
-// Keep outcomes here for now (single-step). We'll centralize later.
-const ALLOWED_OUTCOMES = [
+const ALLOWED_ACTION_OUTCOMES = [
     "call_initiated",
     "callback_requested",
-    "lead_captured",
-    "abandoned",
+    "sms_initiated",
     "unknown",
 ] as const;
 
-type ChatOutcome = (typeof ALLOWED_OUTCOMES)[number];
+type ActionOutcome = (typeof ALLOWED_ACTION_OUTCOMES)[number];
 
-function isChatOutcome(x: unknown): x is ChatOutcome {
-    return typeof x === "string" && (ALLOWED_OUTCOMES as readonly string[]).includes(x);
+function isActionOutcome(x: unknown): x is ActionOutcome {
+    return typeof x === "string" && (ALLOWED_ACTION_OUTCOMES as readonly string[]).includes(x);
 }
 
 export async function POST(req: Request) {
@@ -30,22 +28,19 @@ export async function POST(req: Request) {
 
         const body = await req.json().catch(() => null);
         const session_id = body?.session_id;
-        const outcome = body?.outcome;
+        const action_outcome = body?.action_outcome;
 
         if (!session_id || typeof session_id !== "string") {
             return NextResponse.json({ error: "Missing session_id" }, { status: 400 });
         }
-        if (!isChatOutcome(outcome)) {
-            return NextResponse.json({ error: "Invalid outcome" }, { status: 400 });
+        if (!isActionOutcome(action_outcome)) {
+            return NextResponse.json({ error: "Invalid action_outcome" }, { status: 400 });
         }
-
-      
-       
 
         const { error: updErr } = await supabase
             .from("chat_sessions")
             .update({
-                outcome,
+                action_outcome,
                 ended_at: new Date().toISOString(),
             })
             .eq("id", session_id);
@@ -54,7 +49,7 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: updErr.message }, { status: 500 });
         }
 
-        return NextResponse.json({ ok: true, outcome });
+        return NextResponse.json({ ok: true, action_outcome });
     } catch (e: any) {
         return NextResponse.json({ error: e?.message ?? "Server error" }, { status: 500 });
     }

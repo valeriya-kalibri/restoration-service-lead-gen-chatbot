@@ -328,7 +328,17 @@ export function RestorationWidget({
         color: "#ffffff",
     };
 
+    const optionButtonStyle = {
+        borderColor: primaryColor,
+        color: primaryColor,
+        backgroundColor: "transparent",
+    };
 
+    const selectedOptionButtonStyle = {
+        backgroundColor: primaryColor,
+        borderColor: primaryColor,
+        color: "#ffffff",
+    };
 
     return (
         <div className={wrapperClass}>
@@ -353,66 +363,59 @@ export function RestorationWidget({
 
                 <div className="space-y-3 px-4 py-3">
                     {step === "q1_inquiry" ? (
-                        <div className="space-y-2">
-                            <p className="text-sm text-foreground">
-                                I’m {businessName ? businessName : "[Company Name]"}’s emergency assistant.
-                                <br />
-                                My job is to get the right help to you as quickly as possible.
-                            </p>
-
-                            <div className="text-sm font-medium">What happened?</div>
-
-                            <div className="flex flex-wrap gap-2">
-                                <Button
-                                    disabled={busy}
-                                    onClick={() => onSelectInquiry("water")}
-                                    style={primaryButtonStyle}
-                                >
-                                    Water damage
-                                </Button>
-                                <Button
-                                    disabled={busy}
-                                    onClick={() => onSelectInquiry("fire")}
-                                    style={primaryButtonStyle}
-                                >
-                                    Fire damage
-                                </Button>
-                                <Button
-                                    disabled={busy}
-                                    onClick={() => onSelectInquiry("mold")}
-                                    style={primaryButtonStyle}
-                                >
-                                    Mold
-                                </Button>
-                                <Button
-                                    disabled={busy}
-                                    onClick={() => onSelectInquiry("not_sure")}
-                                    style={primaryButtonStyle}
-                                >
-                                    Not sure / other
-                                </Button>
-                            </div>
+                        <div className="flex flex-wrap gap-2">
+                            <Button
+                                disabled={busy}
+                                variant="outline"
+                                onClick={() => onSelectInquiry("water")}
+                                style={inquiry === "water" ? selectedOptionButtonStyle : optionButtonStyle}
+                            >
+                                Water damage
+                            </Button>
+                            <Button
+                                disabled={busy}
+                                variant="outline"
+                                onClick={() => onSelectInquiry("fire")}
+                                style={inquiry === "fire" ? selectedOptionButtonStyle : optionButtonStyle}
+                            >
+                                Fire damage
+                            </Button>
+                            <Button
+                                disabled={busy}
+                                variant="outline"
+                                onClick={() => onSelectInquiry("mold")}
+                                style={inquiry === "mold" ? selectedOptionButtonStyle : optionButtonStyle}
+                            >
+                                Mold
+                            </Button>
+                            <Button
+                                disabled={busy}
+                                variant="outline"
+                                onClick={() => onSelectInquiry("not_sure")}
+                                style={inquiry === "not_sure" ? selectedOptionButtonStyle : optionButtonStyle}
+                            >
+                                Not sure / other
+                            </Button>
                         </div>
                     ) : null}
 
                     {step === "q2_timing" ? (
                         <div className="space-y-2">
-                            <div className="text-sm font-medium">
-                                Is the problem happening right now, or has it already stopped?
-                            </div>
                             <div className="flex flex-wrap gap-2">
                                 <Button
                                     disabled={busy}
+                                    variant="outline"
                                     onClick={() => onSelectTiming("ongoing")}
-                                    style={primaryButtonStyle}
+                                    style={timing === "ongoing" ? selectedOptionButtonStyle : optionButtonStyle}
                                 >
                                     Happening now
                                 </Button>
 
                                 <Button
                                     disabled={busy}
+                                    variant="outline"
                                     onClick={() => onSelectTiming("stopped")}
-                                    style={primaryButtonStyle}
+                                    style={timing === "stopped" ? selectedOptionButtonStyle : optionButtonStyle}
                                 >
                                     Already stopped
                                 </Button>
@@ -477,7 +480,7 @@ export function RestorationWidget({
                             </div>
 
                             <div className="text-xs text-muted-foreground">
-                                We’ll text you a confirmation and the business will reach out ASAP.
+                                We’ll use this to help the restoration team follow up quickly.
                             </div>
 
                             <Button
@@ -485,7 +488,7 @@ export function RestorationWidget({
                                 onClick={onSubmitContact}
                                 style={primaryButtonStyle}
                             >
-                                Submit
+                                Continue
                             </Button>
                         </div>
                     ) : null}
@@ -561,7 +564,7 @@ export function RestorationWidget({
                             ) : null}
 
                             <div className="flex flex-wrap gap-2">
-                                <Button asChild>
+                                <Button asChild style={primaryButtonStyle}>
                                     <a
                                         href={canCallText ? `tel:${businessPhone}` : "#"}
                                         onClick={async (e) => {
@@ -599,6 +602,36 @@ export function RestorationWidget({
                                     >
                                         Text the business
                                     </a>
+                                </Button>
+
+                                <Button
+                                    variant="outline"
+                                    disabled={busy}
+                                    style={optionButtonStyle}
+                                    onClick={async () => {
+                                        try {
+                                            setBusy(true);
+                                            await ingest("callback_requested", {
+                                                step_id: "done",
+                                                value: "callback_requested",
+                                                meta: {
+                                                    lead_name: name.trim() || null,
+                                                    lead_phone: phone.trim() || null,
+                                                    lead_email: email.trim() || null,
+                                                    city: city.trim() || null,
+                                                    zip: zip.trim() || null,
+                                                    inquiry_type: inquiry,
+                                                    timing,
+                                                },
+                                            });
+                                        } catch (e: any) {
+                                            setError(e?.message ?? "Failed");
+                                        } finally {
+                                            setBusy(false);
+                                        }
+                                    }}
+                                >
+                                    Request a callback
                                 </Button>
 
                                 {variant === "embedded" ? (

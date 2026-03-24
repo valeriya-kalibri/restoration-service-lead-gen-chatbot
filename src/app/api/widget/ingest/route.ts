@@ -160,6 +160,30 @@ export async function POST(req: Request) {
             .eq("client_id", clientId);
     }
 
+    // callback request → callback_requested
+    if (body.event_type === "callback_requested") {
+        await supabase
+            .from("chat_sessions")
+            .update({
+                outcome: "callback_requested",
+                ended_at: new Date().toISOString(),
+            })
+            .eq("id", sid)
+            .eq("client_id", clientId);
+    }
+
+    // text click → keep as tracked action event (not main outcome)
+    if (body.event_type === "text_clicked") {
+        await supabase.from("chat_events").insert({
+            client_id: clientId,
+            session_id: sid,
+            event_type: "text_initiated",
+            step_id: body.step_id ?? "done",
+            value: body.value ?? "text_initiated",
+            meta: {},
+        });
+    }
+    
     // contact_submitted → lead_captured + send SMS (non-fatal)
     if (body.event_type === "contact_submitted") {
         const meta = body.meta ?? {};
@@ -191,7 +215,6 @@ export async function POST(req: Request) {
                 preferred_contact,
                 business_phone: businessPhone,
                 outcome: nextOutcome,
-                ended_at: new Date().toISOString(),
             })
             .eq("id", sid)
             .eq("client_id", clientId);

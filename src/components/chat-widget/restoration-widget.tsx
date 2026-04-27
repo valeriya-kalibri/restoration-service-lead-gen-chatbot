@@ -30,21 +30,6 @@ function cx(...a: Array<string | false | undefined | null>) {
     return a.filter(Boolean).join(" ");
 }
 
-function safeText(x: unknown): string | null {
-    return typeof x === "string" && x.trim() ? x.trim() : null;
-}
-
-function formatPhoneForDisplay(e164: string | null) {
-    if (!e164) return null;
-    const digits = e164.replace(/\D/g, "");
-    if (digits.length === 11 && digits.startsWith("1")) {
-        const a = digits.slice(1, 4);
-        const b = digits.slice(4, 7);
-        const c = digits.slice(7, 11);
-        return `(${a}) ${b}-${c}`;
-    }
-    return e164;
-}
 
 function getOrCreateVisitorId(): string {
     if (typeof window === "undefined") return "unknown";
@@ -88,19 +73,20 @@ export function RestorationWidget({
 
     const [businessPhone, setBusinessPhone] = React.useState<string | null>(null);
     const [widgetEnabled, setWidgetEnabled] = React.useState<boolean>(true);
-    const [businessName, setBusinessName] = React.useState<string | null>(null);
     const [primaryColor, setPrimaryColor] = React.useState<string>("#6D72A8");
 
     const [busy, setBusy] = React.useState(false);
     const [error, setError] = React.useState<string | null>(null);
 
     const bottomRef = React.useRef<HTMLDivElement>(null);
+    const mounted = React.useRef(false);
 
     React.useEffect(() => {
         if (variant === "embedded") setOpen(true);
     }, [variant]);
 
     React.useEffect(() => {
+        if (!mounted.current) { mounted.current = true; return; }
         bottomRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages, busy]);
 
@@ -117,7 +103,7 @@ export function RestorationWidget({
                 if (cancelled) return;
                 if (!res.ok || json?.ok !== true) { setWidgetEnabled(false); return; }
                 setBusinessPhone(typeof json?.business_phone === "string" ? json.business_phone : null);
-                setBusinessName(typeof json?.business_name === "string" ? json.business_name : null);
+
                 setWidgetEnabled(json?.widget_enabled !== false);
                 setPrimaryColor(typeof json?.primary_color === "string" ? json.primary_color : "#6D72A8");
             } catch { if (!cancelled) setWidgetEnabled(false); }

@@ -27,7 +27,7 @@ export function AppHeader() {
     }, []);
 
     return (
-        <header className="w-full bg-primary">
+        <header className="w-full bg-primary border-b border-white/20">
             <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
                 {/* Logo + brand */}
                 <div className="flex items-center gap-2.5">

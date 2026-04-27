@@ -29,8 +29,8 @@ export default async function WelcomePage({
       {/* Hero — same blue as header so they merge without a seam */}
       <section className="bg-primary text-white pt-8 pb-12 px-4">
         <div className="mx-auto max-w-3xl text-center space-y-4">
-          <h1 className="text-3xl md:text-4xl font-bold uppercase tracking-wide leading-snug">
-            Capture Emergency Leads.<br />24/7. Automated.
+          <h1 className="text-xl md:text-2xl font-bold uppercase tracking-wide leading-snug">
+            Capture Emergency Leads. 24/7. Automated.
           </h1>
           <p className="text-white/80 text-sm md:text-base max-w-lg mx-auto">
             Know which restoration emergencies are happening right now — and ensure your team responds before the competition does.
@@ -42,8 +42,27 @@ export default async function WelcomePage({
       </section>
 
       <main className="mx-auto max-w-6xl px-4">
+        {/* Pitch section */}
+        <section className="pt-10 pb-6 text-center space-y-3 max-w-3xl mx-auto">
+            <p className="text-sm text-muted-foreground">
+              Restoration emergencies don&apos;t follow business hours. When a homeowner discovers
+              water damage at midnight, they search Google, contact several companies, and hire
+              whoever responds first.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              This platform installs a{" "}
+              <strong className="font-semibold text-foreground">conversational intake assistant</strong>{" "}
+              on your website that engages visitors the moment they arrive, qualifies the situation,
+              and captures their full contact details — then sends your team an instant SMS alert so
+              you can respond before a competitor does.
+            </p>
+            <p className="text-sm font-medium text-foreground">
+              No forms. No hold times. No missed leads.
+            </p>
+        </section>
+
         {/* Feature cards */}
-        <section className="py-12 grid grid-cols-1 md:grid-cols-2 gap-6">
+        <section className="pt-4 pb-12 grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="rounded-xl border bg-white p-6 shadow-sm space-y-3">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
@@ -71,18 +90,20 @@ export default async function WelcomePage({
 
         {/* Demo widget — centered */}
         <section id="demo" className="pb-12">
-          <div className="mx-auto max-w-lg">
-            <div className="text-center mb-6 space-y-2">
-              <h2 className="text-xl font-bold text-foreground">Try the Demo</h2>
-              <p className="text-sm text-muted-foreground">
-                This is exactly what website visitors see. Takes ~30 seconds and captures name, phone, and location.
-              </p>
-            </div>
-            <div className="rounded-xl border bg-white p-5 shadow-sm">
-              <RestorationWidget mode="demo" variant="embedded" />
-              <p className="mt-3 text-xs text-center text-muted-foreground">
-                Demo mode: Call/Text buttons are preview-only. Live mode uses the business number from Settings.
-              </p>
+          <div className="rounded-xl border border-indigo-200 bg-indigo-50 px-8 py-8">
+            <div className="mx-auto max-w-lg">
+              <div className="text-center mb-6 space-y-2">
+                <h2 className="text-xl font-bold text-foreground">Try the Demo</h2>
+                <p className="text-sm text-muted-foreground">
+                  This is exactly what website visitors see. Takes ~30 seconds and captures name, phone, and location.
+                </p>
+              </div>
+              <div className="rounded-xl border bg-white p-5 shadow-sm">
+                <RestorationWidget mode="demo" variant="embedded" />
+                <p className="mt-3 text-xs text-center text-muted-foreground">
+                  Demo mode: Call/Text buttons are preview-only. Live mode uses the business number from Settings.
+                </p>
+              </div>
             </div>
           </div>
         </section>

@@ -173,3 +173,19 @@
     @apply bg-background text-foreground;
   }
 }
+
+.kw-btn {
+  transition: filter 150ms ease;
+}
+.kw-btn:hover:not(:disabled) {
+  filter: brightness(0.75);
+}
+
+.kw-btn-outline {
+  transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
+}
+.kw-btn-outline:hover:not(:disabled) {
+  background-color: var(--widget-primary) !important;
+  border-color: var(--widget-primary) !important;
+  color: #fff !important;
+}

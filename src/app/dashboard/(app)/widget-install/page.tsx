@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import crypto from "crypto";
 import { createClient } from "@/lib/supabase/server";
 import { EmbedCodeBlock } from "@/components/chat-widget/embed-code-block";
+import { PlatformSteps } from "./_components/platform-steps";
+import { Code2, CheckCircle2 } from "lucide-react";
 
 function safeStr(x: unknown) {
     return typeof x === "string" && x.trim() ? x.trim() : null;
@@ -10,11 +12,23 @@ function safeStr(x: unknown) {
 function getBaseUrl() {
     const fromEnv = process.env.NEXT_PUBLIC_APP_URL;
     if (fromEnv && fromEnv.startsWith("http")) return fromEnv.replace(/\/$/, "");
-
     const vercel = process.env.VERCEL_URL;
     if (vercel) return `https://${vercel}`.replace(/\/$/, "");
-
     return "http://localhost:3000";
+}
+
+function SectionHeader({ step, title, subtitle }: { step: number; title: string; subtitle?: string }) {
+    return (
+        <div className="flex items-start gap-3 mb-5">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-white text-sm font-bold mt-0.5">
+                {step}
+            </div>
+            <div>
+                <h2 className="text-sm font-bold tracking-widest text-foreground uppercase">{title}</h2>
+                {subtitle && <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>}
+            </div>
+        </div>
+    );
 }
 
 export default async function WidgetInstallPage() {
@@ -24,27 +38,18 @@ export default async function WidgetInstallPage() {
 
     const clientId = auth.user.id;
 
-    const { data: profile, error: profileErr } = await supabase
+    const { data: profile } = await supabase
         .from("profiles")
         .select("business_name, widget_key")
         .eq("id", clientId)
         .maybeSingle();
 
-    if (profileErr) {
-        // keep page rendering, but embed may fail if DB is broken
-    }
-
     const businessName = safeStr(profile?.business_name) ?? "your business";
 
     let widgetKey = safeStr(profile?.widget_key);
-
     if (!widgetKey) {
         widgetKey = crypto.randomUUID();
-
-        await supabase
-            .from("profiles")
-            .update({ widget_key: widgetKey })
-            .eq("id", clientId);
+        await supabase.from("profiles").update({ widget_key: widgetKey }).eq("id", clientId);
     }
 
     const baseUrl = getBaseUrl();
@@ -58,56 +63,71 @@ export default async function WidgetInstallPage() {
 ></script>`;
 
     return (
-        <div className="mx-auto w-full max-w-4xl space-y-6">
-            <div className="space-y-1">
-                <h1 className="text-xl font-semibold text-primary">Widget</h1>
-                <p className="text-sm text-muted-foreground">
-                    Install the website widget for{" "}
-                    <span className="font-medium text-foreground">{businessName}</span>.
-                </p>
-            </div>
-
-            <div className="rounded-lg border bg-background p-5 shadow-sm space-y-3">
-                <div className="text-base font-semibold">How to install</div>
-
-                <ol className="list-decimal pl-5 space-y-2 text-sm text-muted-foreground">
-                    <li>Copy the embed code below.</li>
-                    <li>
-                        Paste it into your website (right before{" "}
-                        <span className="font-mono text-foreground">{`</body>`}</span>).
-                        <ul className="list-disc pl-5 mt-2 space-y-1">
-                            <li>
-                                <span className="font-medium text-foreground">WordPress:</span>{" "}
-                                use a Header/Footer plugin (recommended) or edit the theme footer.
-                            </li>
-                            <li>
-                                <span className="font-medium text-foreground">Webflow:</span>{" "}
-                                Project Settings → Custom Code → Footer Code.
-                            </li>
-                            <li>
-                                <span className="font-medium text-foreground">Wix/Squarespace:</span>{" "}
-                                Settings → Custom code / Code injection.
-                            </li>
-                            <li>
-                                <span className="font-medium text-foreground">Custom site:</span>{" "}
-                                paste before closing body tag.
-                            </li>
-                        </ul>
-                    </li>
-                    <li>Save/publish your site, refresh the homepage, and test the widget.</li>
-                </ol>
-
-                <div className="text-xs text-muted-foreground">
-                    After install: go to <span className="font-medium text-foreground">Leads</span> and{" "}
-                    <span className="font-medium text-foreground">Analytics</span> to confirm activity.
+        <div className="space-y-5">
+            {/* Banner */}
+            <div className="rounded-xl bg-primary px-6 py-5 text-white flex items-center justify-between">
+                <div>
+                    <p className="text-xs font-semibold tracking-widest text-white/60 uppercase mb-1">
+                        Installation
+                    </p>
+                    <h1 className="text-2xl font-bold tracking-tight">Widget Install</h1>
+                    <p className="mt-1 text-sm text-white/70">
+                        Add the lead capture chatbot to{" "}
+                        <span className="font-semibold text-white">{businessName}</span>'s website — takes about 5 minutes.
+                    </p>
+                </div>
+                <div className="hidden sm:flex h-12 w-12 items-center justify-center rounded-xl bg-white/10">
+                    <Code2 className="h-6 w-6 text-white" />
                 </div>
             </div>
 
-            <EmbedCodeBlock
-                title="Embed code"
-                description="Copy/paste this into your website (before </body>)."
-                code={embedCode}
-            />
+            {/* Step 1 — Copy code */}
+            <div className="rounded-xl border bg-indigo-50 p-5">
+                <SectionHeader
+                    step={1}
+                    title="Copy your embed code"
+                    subtitle="This code is unique to your account — it links the widget to your dashboard."
+                />
+                <EmbedCodeBlock code={embedCode} />
+            </div>
+
+            {/* Step 2 — Platform instructions */}
+            <div className="rounded-xl border bg-indigo-50 p-5">
+                <SectionHeader
+                    step={2}
+                    title="Add it to your website"
+                    subtitle="Select your website platform below for step-by-step instructions."
+                />
+                <PlatformSteps />
+            </div>
+
+            {/* Step 3 — Verify */}
+            <div className="rounded-xl border bg-indigo-50 p-5">
+                <SectionHeader
+                    step={3}
+                    title="Verify it's working"
+                    subtitle="Confirm the widget is live and capturing leads correctly."
+                />
+                <div className="space-y-3">
+                    {[
+                        "Open your website in a new browser tab.",
+                        "Look for the chat bubble in the bottom-right corner of the page — it should appear within a few seconds.",
+                        "Click the bubble and complete a short test conversation.",
+                        "Come back here and check Chat Logs — your test session should appear within a minute.",
+                    ].map((item, i) => (
+                        <div key={i} className="flex items-start gap-3">
+                            <CheckCircle2 className="h-4 w-4 shrink-0 text-primary mt-0.5" />
+                            <p className="text-sm text-muted-foreground leading-relaxed">{item}</p>
+                        </div>
+                    ))}
+
+                    <div className="mt-4 rounded-xl border bg-white px-4 py-3 text-sm text-muted-foreground">
+                        <span className="font-semibold text-foreground">Not seeing the bubble?</span>{" "}
+                        Double-check the code was saved and the page was published. Clear your browser cache and try again. If it still doesn't appear, contact{" "}
+                        <span className="font-medium text-foreground">support@kalibristudios.ai</span>.
+                    </div>
+                </div>
+            </div>
         </div>
     );
 }

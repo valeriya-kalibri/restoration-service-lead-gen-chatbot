@@ -300,6 +300,8 @@ export async function POST(req: Request) {
                 preferred_contact,
                 business_phone: businessPhone,
                 lead_status: "lead_captured",
+                action_outcome: preferred_contact === "callback" ? "callback_requested" : undefined,
+                ended_at: preferred_contact === "callback" ? new Date().toISOString() : undefined,
             })
             .eq("id", sid)
             .eq("client_id", clientId);

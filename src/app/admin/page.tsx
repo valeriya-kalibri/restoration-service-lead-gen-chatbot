@@ -14,14 +14,13 @@ export default function AdminHomePage() {
 
             <div className="grid gap-4 md:grid-cols-2">
                 {/* Users */}
-                <div className="rounded-lg border bg-background p-4">
+                <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-4">
                     <div className="space-y-1">
                         <div className="text-sm font-semibold text-foreground">Users</div>
                         <div className="text-sm text-muted-foreground">
                             Browse profiles and onboarding/status details.
                         </div>
                     </div>
-
                     <div className="mt-3">
                         <Button asChild>
                             <Link href="/admin/users">Open Users</Link>
@@ -30,14 +29,13 @@ export default function AdminHomePage() {
                 </div>
 
                 {/* Monitoring */}
-                <div className="rounded-lg border bg-background p-4">
+                <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-4">
                     <div className="space-y-1">
                         <div className="text-sm font-semibold text-foreground">Monitoring</div>
                         <div className="text-sm text-muted-foreground">
                             Global health dashboard: drop-offs, leaking leads, SMS failures, config issues.
                         </div>
                     </div>
-
                     <div className="mt-3">
                         <Button asChild>
                             <Link href="/admin/monitoring">Open Monitoring</Link>
@@ -46,36 +44,32 @@ export default function AdminHomePage() {
                 </div>
 
                 {/* Clients */}
-                <div className="rounded-lg border bg-background p-4">
+                <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-4">
                     <div className="space-y-1">
                         <div className="text-sm font-semibold text-foreground">Clients</div>
                         <div className="text-sm text-muted-foreground">
                             View each client and what they see (analytics), plus CSV/PDF exports.
                         </div>
                     </div>
-
                     <div className="mt-3">
                         <Button asChild>
                             <Link href="/admin/clients">Open Clients</Link>
                         </Button>
-
                     </div>
                 </div>
 
-                {/* Optional placeholder for later features */}
-                <div className="rounded-lg border bg-background p-4">
+                {/* System notes */}
+                <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-4">
                     <div className="space-y-1">
                         <div className="text-sm font-semibold text-foreground">System notes</div>
                         <div className="text-sm text-muted-foreground">
                             Internal notes area (optional). You can delete this card anytime.
                         </div>
                     </div>
-
                     <div className="mt-3">
                         <Button asChild>
                             <Link href="/admin/system-notes">Open System Notes</Link>
                         </Button>
-
                     </div>
                 </div>
             </div>

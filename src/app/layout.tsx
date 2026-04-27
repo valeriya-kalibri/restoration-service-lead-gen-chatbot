@@ -26,7 +26,7 @@ export default function RootLayout({
     <html lang="en">
       <body
         className={`${montserratFont.className} antialiased`}
-        cz-shortcut-listen="true"
+        suppressHydrationWarning
       >
         {children}
       </body>

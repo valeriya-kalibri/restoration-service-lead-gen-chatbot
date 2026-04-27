@@ -2,46 +2,43 @@
 
 import * as React from "react";
 import { Button } from "@/components/ui/button";
+import { Check, Copy } from "lucide-react";
 
 type Props = {
-    title: string;
-    description?: string;
     code: string;
     note?: string;
 };
 
-export function EmbedCodeBlock({ title, description, code, note }: Props) {
+export function EmbedCodeBlock({ code, note }: Props) {
     const [copied, setCopied] = React.useState(false);
 
     async function onCopy() {
         try {
             await navigator.clipboard.writeText(code);
             setCopied(true);
-            setTimeout(() => setCopied(false), 1200);
+            setTimeout(() => setCopied(false), 1500);
         } catch {
-            // If clipboard fails, do nothing (user can still select + copy)
+            // clipboard unavailable — user can still select + copy
         }
     }
 
     return (
-        <div className="rounded-lg border bg-background p-5 shadow-sm space-y-3">
-            <div className="space-y-1">
-                <div className="text-base font-semibold text-primary">{title}</div>
-                {description ? <div className="text-sm text-muted-foreground">{description}</div> : null}
-            </div>
-
-            <div className="rounded-md border bg-muted/30 p-3">
-                <pre className="whitespace-pre-wrap break-words text-xs leading-5 text-foreground">
+        <div className="space-y-3">
+            <div className="rounded-xl border bg-white overflow-hidden">
+                <pre className="whitespace-pre-wrap break-words p-4 text-xs leading-5 text-foreground font-mono">
                     <code>{code}</code>
                 </pre>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-                <Button onClick={onCopy}>{copied ? "Copied" : "Copy code"}</Button>
-                
+            <div className="flex items-center gap-2">
+                <Button onClick={onCopy} className="gap-2">
+                    {copied
+                        ? <><Check className="h-3.5 w-3.5" /> Copied!</>
+                        : <><Copy className="h-3.5 w-3.5" /> Copy code</>
+                    }
+                </Button>
+                {note && <span className="text-xs text-muted-foreground">{note}</span>}
             </div>
-
-            {note ? <div className="text-xs text-muted-foreground">{note}</div> : null}
         </div>
     );
 }

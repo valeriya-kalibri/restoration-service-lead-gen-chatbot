@@ -1,9 +1,10 @@
-import * as React from "react";
+﻿﻿import * as React from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { AppHeader } from "@/components/layout/app-header";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { DashboardNav } from "@/components/layout/dashboard-nav";
+import { AppFooter } from "@/components/layout/app-footer";
 
 export default async function DashboardAppLayout({
     children,
@@ -13,7 +14,7 @@ export default async function DashboardAppLayout({
     const supabase = await createClient();
     const { data } = await supabase.auth.getUser();
 
-    // Not logged in → welcome
+    // Not logged in â†’ welcome
     if (!data.user) {
         redirect("/");
     }
@@ -25,16 +26,14 @@ export default async function DashboardAppLayout({
         .eq("id", data.user.id)
         .single();
 
-    // Missing profile / query error → force onboarding (or you can redirect to /)
+    // Missing profile / query error â†’ force onboarding (or you can redirect to /)
     if (!profile || error) {
         redirect("/dashboard/onboarding");
     }
 
-    // ✅ Soft-cancel gate (block dashboard access)
+    // Soft-cancel gate - keep session alive so user can reactivate
     if (profile.account_status === "cancelled") {
-        // Optional: sign out as well to avoid confusing “logged in but blocked” state
-        await supabase.auth.signOut();
-        redirect("/?cancelled=1");
+        redirect("/dashboard/reactivate");
     }
 
     // Enforce onboarding for ALL dashboard routes under (app)
@@ -54,11 +53,12 @@ export default async function DashboardAppLayout({
 
 
     return (
-        <div className="min-h-screen bg-muted/30">
-            <AppHeader title="RESTORATION SERVICE LEAD GENERATION CHATBOT" />
+        <div className="min-h-screen bg-muted/30 flex flex-col">
+            <AppHeader />
             <DashboardShell sidebar={<DashboardNav isAdmin={isAdmin} />}>
                 {children}
             </DashboardShell>
+            <AppFooter />
         </div>
     );
 }

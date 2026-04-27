@@ -1,4 +1,4 @@
-import * as React from "react";
+﻿import * as React from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { AppHeader } from "@/components/layout/app-header";
@@ -32,7 +32,7 @@ export default async function AdminLayout({
 
     return (
         <div className="min-h-screen bg-muted/30">
-            <AppHeader title="KALIBRI ADMIN PORTAL" />
+            <AppHeader />
 
             {/* Reuse your universal shell/nav for admin too */}
             <DashboardShell sidebar={<DashboardNav isAdmin />}>{children}</DashboardShell>

@@ -1,144 +1,141 @@
-import Image from "next/image";
 import { AppHeader } from "@/components/layout/app-header";
+import { AppFooter } from "@/components/layout/app-footer";
 import { createClient } from "@/lib/supabase/server";
-import { GetStartedCTA } from "@/components/get-started-cta";
+import { HeroCTA } from "@/components/get-started-cta";
+import { MessageSquare, BarChart3 } from "lucide-react";
 import { RestorationWidget } from "@/components/chat-widget/restoration-widget";
 
-export default async function WelcomePage() {
+export default async function WelcomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
   const isAuthed = !!auth.user;
+  const params = await searchParams;
+  const wasCancelled = params.cancelled === "1";
 
   return (
-    <div className="min-h-screen bg-muted/30">
-      <AppHeader title="RESTORATION SERVICE LEAD GENERATION CHATBOT" />
+    <div className="min-h-screen bg-white flex flex-col">
+      <AppHeader />
 
-      <main className="mx-auto max-w-6xl px-4 py-10">
-        {/* Hero */}
-        <section className="grid grid-cols-1 items-center gap-8 md:grid-cols-2">
-          {/* Image */}
-          <div className="flex items-center justify-center">
-            <div className="relative h-72 w-full max-w-xl md:h-80">
-              <Image
-                src="/images/welcome-page-illustration.png"
-                alt="Restoration chatbot illustration"
-                fill
-                priority
-                className="object-contain"
-              />
+      {wasCancelled && (
+        <div className="bg-amber-50 border-b border-amber-200 px-4 py-3 text-center text-sm text-amber-800">
+          Your account has been cancelled. Log back in any time to reactivate it.
+        </div>
+      )}
+
+      {/* Hero — same blue as header so they merge without a seam */}
+      <section className="bg-primary text-white pt-8 pb-12 px-4">
+        <div className="mx-auto max-w-3xl text-center space-y-4">
+          <h1 className="text-3xl md:text-4xl font-bold uppercase tracking-wide leading-snug">
+            Capture Emergency Leads.<br />24/7. Automated.
+          </h1>
+          <p className="text-white/80 text-sm md:text-base max-w-lg mx-auto">
+            Know which restoration emergencies are happening right now — and ensure your team responds before the competition does.
+          </p>
+          <div className="flex flex-wrap items-center justify-center gap-4 pt-1">
+            <HeroCTA isAuthed={isAuthed} />
+          </div>
+        </div>
+      </section>
+
+      <main className="mx-auto max-w-6xl px-4">
+        {/* Feature cards */}
+        <section className="py-12 grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="rounded-xl border bg-white p-6 shadow-sm space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                <MessageSquare className="h-5 w-5 text-primary" />
+              </div>
+              <div className="text-base font-bold text-foreground">Live Demo Widget</div>
             </div>
+            <p className="text-sm text-muted-foreground">
+              Experience exactly what your website visitors see — a fast, conversational intake that captures name, phone, location, and damage type in under 30 seconds. No forms. No friction.
+            </p>
           </div>
 
-          {/* Copy */}
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <h1 className="text-2xl font-semibold text-primary">
-                Capture Emergency Leads — Even When You Miss the Call
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                An embedded website chatbot built for water, fire, and mold restoration companies.
-              </p>
+          <div className="rounded-xl border bg-white p-6 shadow-sm space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                <BarChart3 className="h-5 w-5 text-primary" />
+              </div>
+              <div className="text-base font-bold text-foreground">Full Lead Capture System</div>
             </div>
-
-            <div className="space-y-3 text-sm leading-6 text-muted-foreground">
-              <p>
-                When a homeowner has an emergency, they don’t wait. If your phone goes unanswered,
-                they call the next company on Google.
-              </p>
-
-              <p>
-                This chatbot acts as a{" "}
-                <span className="font-medium text-foreground">
-                  24/7 emergency intake assistant
-                </span>
-                . It captures the situation, collects contact details, and immediately alerts your team by SMS —
-                so you can call back before the job is gone.
-              </p>
-
-              <p>
-                There’s no scheduling, no long forms, and no friction. Just fast lead capture,
-                real phone numbers, and real conversations.
-              </p>
-            </div>
-
-            {/* CTA */}
-            <div className="flex flex-wrap items-center gap-2 pt-1">
-              <GetStartedCTA isAuthed={isAuthed} />
-            </div>
+            <p className="text-sm text-muted-foreground">
+              Get a fully installed, branded chatbot widget on your website — with a real-time lead dashboard, instant SMS alerts for emergencies, and 24/7 automated intake. No tech team required.
+            </p>
           </div>
         </section>
 
-        {/* Demo widget embed */}
-        <section className="mt-10 grid grid-cols-1 gap-6 md:grid-cols-2">
-          <div className="rounded-lg border bg-background p-5">
-            <div className="space-y-2">
-              <h2 className="text-base font-semibold text-primary">Try the demo</h2>
+        {/* Demo widget — centered */}
+        <section id="demo" className="pb-12">
+          <div className="mx-auto max-w-lg">
+            <div className="text-center mb-6 space-y-2">
+              <h2 className="text-xl font-bold text-foreground">Try the Demo</h2>
               <p className="text-sm text-muted-foreground">
-                This is exactly what website visitors see. It asks a few fast questions, captures the lead,
-                and alerts your team.
+                This is exactly what website visitors see. Takes ~30 seconds and captures name, phone, and location.
               </p>
-              <ul className="mt-3 space-y-1 text-sm text-muted-foreground">
-                <li>• Takes ~30 seconds</li>
-                <li>• Captures name + phone + location</li>
-                <li>• Alerts your team by SMS (live mode)</li>
-              </ul>
             </div>
-          </div>
-
-          <div className="rounded-lg border bg-background p-5">
-            
-              {/* IMPORTANT: demo mode = no API calls */}
+            <div className="rounded-xl border bg-white p-5 shadow-sm">
               <RestorationWidget mode="demo" variant="embedded" />
-
-
-            
-
-            <div className="mt-3 text-xs text-muted-foreground">
-              Demo mode: Call/Text buttons are preview-only. Live mode uses the business number from Settings.
+              <p className="mt-3 text-xs text-center text-muted-foreground">
+                Demo mode: Call/Text buttons are preview-only. Live mode uses the business number from Settings.
+              </p>
             </div>
           </div>
         </section>
 
-        {/* Value blocks */}
-        <section className="mt-10 grid gap-3 md:grid-cols-4">
-          <div className="rounded-lg border bg-background p-4">
-            <div className="text-sm font-semibold text-primary">Why this exists</div>
-            <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
-              <li>• Missed calls = lost jobs</li>
-              <li>• Emergencies can’t wait</li>
-              <li>• Forms are too slow</li>
+        {/* Info cards */}
+        <section className="pb-20 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          {/* Why this exists */}
+          <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-5 shadow-sm space-y-3">
+            <div className="text-xs font-bold uppercase tracking-widest text-primary">Why this exists</div>
+            <ul className="space-y-2 text-sm text-muted-foreground">
+              <li className="flex gap-2"><span className="text-primary/50 shrink-0">·</span>Missed calls are missed jobs — most homeowners call 2–3 companies and go with whoever answers first</li>
+              <li className="flex gap-2"><span className="text-primary/50 shrink-0">·</span>Emergencies can't wait for a callback — water damage spreads by the hour</li>
+              <li className="flex gap-2"><span className="text-primary/50 shrink-0">·</span>Contact forms convert poorly — visitors abandon them before hitting submit</li>
+              <li className="flex gap-2"><span className="text-primary/50 shrink-0">·</span>After-hours leads vanish — no one checks the inbox until morning</li>
             </ul>
           </div>
 
-          <div className="rounded-lg border bg-background p-4">
-            <div className="text-sm font-semibold text-primary">Who it’s for</div>
-            <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
-              <li>• Water restoration companies</li>
-              <li>• Fire & smoke restoration</li>
-              <li>• Mold remediation teams</li>
+          {/* Who it's for */}
+          <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-5 shadow-sm space-y-3">
+            <div className="text-xs font-bold uppercase tracking-widest text-primary">Who it&apos;s for</div>
+            <ul className="space-y-2 text-sm text-muted-foreground">
+              <li className="flex gap-2"><span className="text-primary/50 shrink-0">·</span>Water restoration companies dealing with floods, burst pipes, and sewage</li>
+              <li className="flex gap-2"><span className="text-primary/50 shrink-0">·</span>Fire &amp; smoke restoration teams handling post-fire cleanup</li>
+              <li className="flex gap-2"><span className="text-primary/50 shrink-0">·</span>Mold remediation specialists</li>
+              <li className="flex gap-2"><span className="text-primary/50 shrink-0">·</span>Any emergency home service that needs to respond fast and win the job before a competitor does</li>
             </ul>
           </div>
 
-          <div className="rounded-lg border bg-background p-4">
-            <div className="text-sm font-semibold text-primary">How it works</div>
-            <ol className="mt-2 space-y-1 text-sm text-muted-foreground">
-              <li>1) Visitor reports the emergency</li>
-              <li>2) Chatbot collects contact details</li>
-              <li>3) You receive an instant SMS alert</li>
-            </ol>
+          {/* How it works */}
+          <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-5 shadow-sm space-y-3">
+            <div className="text-xs font-bold uppercase tracking-widest text-primary">How it works</div>
+            <ul className="space-y-2 text-sm text-muted-foreground">
+              <li className="flex gap-2"><span className="text-primary/50 shrink-0">·</span>Visitor lands on your site — the widget appears immediately, no click required</li>
+              <li className="flex gap-2"><span className="text-primary/50 shrink-0">·</span>AI walks them through a short conversation: damage type, urgency, location, and contact info</li>
+              <li className="flex gap-2"><span className="text-primary/50 shrink-0">·</span>You receive an instant SMS alert with the full lead details</li>
+              <li className="flex gap-2"><span className="text-primary/50 shrink-0">·</span>Everything is logged in your dashboard — even if it comes in at 3am</li>
+            </ul>
           </div>
 
-          <div className="rounded-lg border bg-background p-4">
-            <div className="text-sm font-semibold text-primary">What you get</div>
-            <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
-              <li>• Captured leads (even after hours)</li>
-              <li>• Call-back requests by SMS</li>
-              <li>• Fewer lost emergencies</li>
+          {/* What you get */}
+          <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-5 shadow-sm space-y-3">
+            <div className="text-xs font-bold uppercase tracking-widest text-primary">What you get</div>
+            <ul className="space-y-2 text-sm text-muted-foreground">
+              <li className="flex gap-2"><span className="text-primary/50 shrink-0">·</span>Captured leads around the clock — even after hours and on weekends</li>
+              <li className="flex gap-2"><span className="text-primary/50 shrink-0">·</span>Instant SMS alerts for high-urgency emergencies</li>
+              <li className="flex gap-2"><span className="text-primary/50 shrink-0">·</span>Full lead dashboard with contact info, damage type, and conversation history</li>
+              <li className="flex gap-2"><span className="text-primary/50 shrink-0">·</span>Follow-up tracking so no lead slips through the cracks</li>
+              <li className="flex gap-2"><span className="text-primary/50 shrink-0">·</span>Fewer lost emergencies — and a real edge over competitors still using forms</li>
             </ul>
           </div>
         </section>
       </main>
+      <AppFooter />
     </div>
   );
 }
-

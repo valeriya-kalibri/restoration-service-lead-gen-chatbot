@@ -1,4 +1,4 @@
-import * as React from "react";
+﻿import * as React from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { AppHeader } from "@/components/layout/app-header";
@@ -20,7 +20,7 @@ export default async function OnboardingLayout({
 
     return (
         <div className="min-h-screen bg-muted/30">
-            <AppHeader title="RESTORATION SERVICE LEAD GENERATION CHATBOT" />
+            <AppHeader />
 
             <DashboardShell sidebar={<DashboardNav />}>
                 {children}

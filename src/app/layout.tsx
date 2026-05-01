@@ -5,8 +5,8 @@ import "./globals.css";
 
 
 export const metadata: Metadata = {
-  title: "Kalibri- Business Operations Audit",
-  description: "Operational & AI Readiness Audit for modern businesses",
+  title: "Kalibri - Restoration Lead Capture",
+  description: "AI-powered lead capture chatbot for restoration and emergency home service businesses.",
 };
 
 // comment: this initiate the font that was imported from google fonts 
